@@ -1,26 +1,30 @@
 {
-    "scan": "true",
-    "controllers": [
-      {
-        "ip": "192.168.1.90",
-        "programs": [
-          {
-            "MainProgram": {
-              "tags": [
-                "Accel",
-                "SFK4H_VariableManager"
-              ]
-            }
-          },
-          {
-            "controller": {
-              "tags": [
-                "iCounter",
-                "arErrData"
-              ]
-            }
+  "ctrlX provider": {
+      "ip":"10.0.2.2",
+      "port":"8443"
+  },  
+  "scan": "true",
+  "controllers": [
+    {
+      "ip": "192.168.1.90",
+      "programs": [
+        {
+          "MainProgram": {
+            "tags": [
+              "Accel",
+              "SFK4H_VariableManager"
+            ]
           }
-        ]
-      }
-    ]
-  }
+        },
+        {
+          "controller": {
+            "tags": [
+              "iCounter",
+              "arErrData"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

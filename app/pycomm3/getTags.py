@@ -103,17 +103,6 @@ def tagSorter(tag):
     File_object.close()
     return abList
 
-#with LogixDriver('192.168.2.90') as plc:
-#    tag_List = plc.get_tag_list("TestProgram")
-#    tagList = []
-#    File_object = open("DEV/tagList.csv", "w+")
-#    for t in tag_List:
-#        tagList.append(tagSorter(t))
-#    fileString = pprint.pformat(tagList)
-#   File_object.write(fileString)
-#    File_object.close()
-
-
 def find_attributes():
     with LogixDriver('192.168.1.90') as plc:
         ...  # do nothing, we're just letting the plc initialize the tag list

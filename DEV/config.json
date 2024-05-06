@@ -1,17 +1,20 @@
 {
-    "scan": "true",
-    "controllers": [
-      {
-        "ip": "192.168.2.90",
-        "programs": [
-          {
-            "TestProgram": {
-              "tags": [
-                "arReal100"
-              ]
-            }
-          }
-        ]
-      }
-    ]
-  }
+  "ctrlX provider": {
+    "ip":"10.0.2.2",
+    "port":"8443"
+  },    
+  "scan": "true",
+  "controllers": [
+    {
+      "ip": "192.168.2.10",
+      "programs": [
+        {
+          "name": "MainProgram",
+          "tags": [
+              "arReal100"
+            ]
+        }
+      ]
+    }
+  ]
+}

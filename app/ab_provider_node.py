@@ -168,9 +168,9 @@ class ABnode:
             elif self.type == "REAL":
                 self.controller.Write(self.abTagName, data.get_float32())
             elif self.type == "LREAL":
-                self.controller.Write(self.abTagName, data.get_array_float64())
+                self.controller.Write(self.abTagName, data.get_float64())
             elif self.type == "DWORD":
-                self.controller.Writ(self.abTagName, data.get_uint32())
+                self.controller.Write(self.abTagName, data.get_uint32())
             elif self.type == "STRING":
                 self.controller.Write(self.abTagName, data.get_string())
             else:

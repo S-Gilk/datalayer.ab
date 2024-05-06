@@ -2,3 +2,5 @@
 /prime
 /stage
 /venv
+.vscode
+*.snap
