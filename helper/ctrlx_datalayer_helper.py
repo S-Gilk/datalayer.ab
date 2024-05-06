@@ -118,7 +118,7 @@ def get_client(system: ctrlxdatalayer.system.System,
 
 
 def get_provider(system: ctrlxdatalayer.system.System,
-                 ip="192.168.1.202",
+                 ip="192.168.2.2",
                  user="boschrexroth",
                  password="boschrexroth",
                  ssl_port=443):

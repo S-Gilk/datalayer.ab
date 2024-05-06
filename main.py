@@ -33,17 +33,20 @@ import logging
 import logging.handlers
 from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
-from app.ab_util import myLogger, tagSorter, addData
+from app.ab_util import myLogger, addData#, tagSorter
+from app.pycomm3.getTags import tagSorter
+import pprint
 #from cysystemd import journal
 
 def runApp(provider):
     # Path to compiled files
+
     snap_path = os.getenv('SNAP')
     if snap_path is None:
         config = "./DEV/config.json"
     else:
         config = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/config.json"
-    
+
     #Get the time the files was modified
     fileTime = os.stat(config).st_mtime
     myLogger("Config modified at UNIX TIME " + str(fileTime), logging.INFO)
@@ -105,7 +108,8 @@ def runApp(provider):
                                 tags = controller.get_tag_list('*')
                                 for tag in tags:
                                     #pass each tag to the tag sorter which returns 
-                                    sortedTags = tagSorter(tag)        
+                                    sortedTags = tagSorter(tag)       
+                                    #pprint.pprint(sortedTags)
                                     for sortedTag in sortedTags:
                                         abProviderList.append(addData(sortedTag, provider, comm, controller))
                             return abProviderList, comm, controller
@@ -126,7 +130,8 @@ def runApp(provider):
                     with LogixDriver(device.IPAddress) as controller:
                         tags = controller.get_tag_list('*')
                         for t in tags:
-                            sortedTags = tagSorter(t)        
+                            sortedTags = tagSorter(t)   
+                            #pprint.pprint(sortedTags)     
                             for sortedTag in sortedTags:
                                 abProviderList.append(addData(sortedTag, provider, comm, controller))
                         return abProviderList, comm, controller
@@ -139,12 +144,23 @@ def runApp(provider):
     else: #use a defined PLC IP for debug and testing
         comm = PLC()
         comm.IPAddress = "192.168.2.90"
+        print("running local")
         try:        
             with LogixDriver("192.168.2.90") as controller:
-                tags = controller.get_tag_list('*')
+                #tags = controller.get_tag_list('TestProgram')
+                tags = controller.get_tag_list("Program:TestProgram")
                 print(controller.info)
-                for t in tags:
-                    sortedTags = tagSorter(t)        
+                #for t in tags:
+                    #agList.append(tagSorter(t['tag_name'], t['tag_name'], t))
+                    #sortedTags = tagSorter(t['tag_name'], t['tag_name'], t)  
+                #sortedTags = tagSorter(t)  
+                #tag = 'Program:TestProgram.arReal100'
+
+                #tags = controller.get_tag_list('*')
+                for tag in tags:    
+                    #sortedTags = tagSorter(controller.get_tag_info(tag))    
+                    sortedTags = tagSorter(controller.get_tag_info(tag["tag_name"]))    
+                    #pprint.pprint(sortedTags)
                     for sortedTag in sortedTags:
                         abProviderList.append(addData(sortedTag, provider, comm, controller))
                 return abProviderList, comm, controller          
@@ -153,7 +169,6 @@ def runApp(provider):
             return None, None, None
                   
 def main():
-
     snap_path = os.getenv('SNAP')
     print(snap_path)
     if snap_path is None:
@@ -203,7 +218,7 @@ def main():
 
             #Start the applicaiton             
             abProviderList, comm, controller = runApp(provider)
-
+            #pprint.print(abProviderList)
             #Get the time the files was modified
             fileTime =  os.stat(config).st_mtime
             if abProviderList is not None and comm is not None and controller is not None:       

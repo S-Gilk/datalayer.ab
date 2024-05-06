@@ -48,8 +48,10 @@ parts:
       - libzmq5
       - ctrlx-datalayer
     python-packages:  
-      - ./whl/pylogix-0.8.13-py2.py3-none-any.whl
-      - ./whl/pycomm3-1.2.11-py3-none-any.whl 
+      #- ./whl/pylogix-0.8.13-py2.py3-none-any.whl
+      #- ./whl/pycomm3-1.2.11-py3-none-any.whl 
+      - ./whl/pylogix-1.0.0-py2.py3-none-any.whl
+      - ./whl/pycomm3-1.2.14-py3-none-any.whl 
   data:    
     plugin: dump 
     source: AllenBradley 

@@ -94,7 +94,7 @@ class ABnode:
             cb(Result.OK, new_data)
         except:
             #myLogger("Failed to read tag " + self.abTagName, logging.WARNING, source=__name__)
-            cb(Result.OK, new_data)    
+            cb(Result.FAILED, new_data)    
         
 
     def __on_write(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
@@ -104,7 +104,7 @@ class ABnode:
             cb(Result.OK, self.data)
         except:
             #myLogger("Failed to write tag " + self.abTagName, logging.WARNING, source=__name__)
-            cb(Result.OK, self.data)
+            cb(Result.FAILED, self.data)
 
     def __on_metadata(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
         #print("__on_metadata()", "address:", address,"metadata:",self.metadata, "userdata:", userdata)
@@ -138,8 +138,11 @@ class ABnode:
                 return self.data.set_uint32(data)
             elif self.type == "STRING":
                 return self.data.set_string(data)
+            else:
+                return self.data
         except Exception as e:
-            print(e)
+            print("Failed to read tag: " + self.abTagName + " with exception: " + e)
+            #print(e)
             #myLogger("Failed to read tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
 
     def writeVariantValue(self, data : Variant):
@@ -170,8 +173,11 @@ class ABnode:
                 self.controller.Writ(self.abTagName, data.get_uint32())
             elif self.type == "STRING":
                 self.controller.Write(self.abTagName, data.get_string())
+            else:
+                print("Failed to write tag: " + self.abTagName)        
         except Exception as e:
-            print(e)
+            print("Failed to write tag: " + self.abTagName + " with exception: " + e)
+            #print(e)
             #myLogger("Failed to write tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
 
     def getVariantType(self, type : str):
@@ -202,8 +208,11 @@ class ABnode:
                 return "uint32"
             elif type == "STRING":
                 return "string"
+            else:
+                return "UNKNON"
         except Exception as e:
-            print(e)
+            print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
+            #print(e)
             #myLogger("Failed to get type for tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
 
     def updateVariantValue(self) -> Result:

@@ -5,15 +5,9 @@
         "ip": "192.168.2.90",
         "programs": [
           {
-            "MainProgram": {
-              "tags": ""
-            }
-          },
-          {
-            "controller": {
+            "TestProgram": {
               "tags": [
-                "iCounter",
-                "arErrData"
+                "arReal100"
               ]
             }
           }
