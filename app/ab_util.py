@@ -101,14 +101,14 @@ def tagSorter(tag):
             abList.append(updatedPath)
     return abList      
 
-def addData(tag, provider, connection, controller):
-    corePath = tag[0]
-    myLogger('adding tag: ' + tag[0], logging.INFO, source=__name__)
+def addData(_tag, _ctrlxDatalayerProvider, _plc, _EIP_client):
+    corePath = _tag[0]
+    myLogger('adding tag: ' + _tag[0], logging.INFO, source=__name__)
     if corePath.find("Program:") != -1:
         corePath = corePath.replace("Program:", "")
         pathSplit = corePath.split(".")
-        abProvider = ABnode(provider, tag[1], connection, tag[2], controller.info["product_name"].replace("/", "--").replace(" ","_") + "/" + connection.IPAddress + "/" + pathSplit[0] + "/" + pathSplit[1])
+        ABNode = ABnode(_ctrlxDatalayerProvider, _tag[1], _plc, _tag[2], _EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _plc.IPAddress + "/" + pathSplit[0] + "/" + pathSplit[1])
     else:
-        abProvider = ABnode(provider, tag[1], connection, tag[2], controller.info["product_name"].replace("/", "--").replace(" ","_") + "/" + connection.IPAddress + "/" + "ControllerTags" + "/" + tag[0])    
-    abProvider.register_node()
-    return abProvider
+        ABNode = ABnode(_ctrlxDatalayerProvider, _tag[1], _plc, _tag[2], _EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _plc.IPAddress + "/" + "ControllerTags" + "/" + _tag[0])    
+    ABNode.register_node()
+    return ABNode

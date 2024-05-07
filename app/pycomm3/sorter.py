@@ -9,7 +9,7 @@ def Sorter(dataLayerPath, controllerPath, tag):
         #print("tag type: " + tag['tag_type'])
         #print("dimensions: " + str(tag['dimensions']))
         tag_type = tag['tag_type']
-        index = 1
+        index = 0
         if tag["dimensions"][0] != 0:
             for x in range(tag["dimensions"][0]):
                 if tag_type == 'atomic':
@@ -95,6 +95,7 @@ def Sorter(dataLayerPath, controllerPath, tag):
                 tagList.append(abTagTuple)
     return tagList
 
+# Wrapper for Sorter function which writes out tag list to csv
 def tagSorter(tag):
     abList = Sorter(tag['tag_name'], tag['tag_name'], tag)    
     File_object = open("DEV/tagList.csv", "w+")
@@ -102,11 +103,4 @@ def tagSorter(tag):
     File_object.write(fileString)
     File_object.close()
     return abList
-
-def find_attributes():
-    with LogixDriver('192.168.1.90') as plc:
-        ...  # do nothing, we're just letting the plc initialize the tag list
-        tag_List = plc.get_tag_list()
-        
-        print(tag_List)
 
