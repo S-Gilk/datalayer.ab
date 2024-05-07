@@ -28,16 +28,17 @@ import time
 import json
 import ctrlxdatalayer
 from ctrlxdatalayer.variant import Result
-from pylogix import PLC
+from pylogix import PLC, lgx_device
 import logging
 import logging.handlers
+import typing
 from pycomm3 import LogixDriver
 from app.helper.ctrlx_datalayer_helper import get_provider
 from app.ab_util import myLogger, addData
 from app.pycomm3.sorter import tagSorter
 
 
-def loadConfig():
+def loadConfig() -> typing.Tuple[str,str,object]:
     """
     Loads config file and sets logging path depending on environment
         :param void:
@@ -76,11 +77,56 @@ SORTED_TAGS = []
 PLC_LIST = []
 EIP_CLIENT_LIST = []
 
-def localExecution(_ctrlxDatalayerProvider):
+def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _tags:list):
+    """
+    Sorts and provides given tags as nodes to ctrlX datalayer provider
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+        :param _plc: = PyLogix PLC
+        :param _EIP_client: = LogixDriver
+        :param _tags: = list of tags to sort and provide
+    """
+    try:
+        for tag in _tags:
+            # Sort sub-tags to determine paths and add all tags to provider node list
+            sortedTags = tagSorter(tag)    
+            for sortedTag in sortedTags:
+                AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, _plc, _EIP_client))
+    except:
+        myLogger("Failed to sort and provide tags for device: " + _plc.IPAddress, logging.ERROR, source=__name__)
+
+def provideAllProgramTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _program:str):
+    """
+    Provides all program tags to the ctrlX datalayer provider
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+        :param _plc: = PyLogix PLC
+        :param _EIP_client: = LogixDriver
+        :param _program: = PLC program name to load tags from
+    """
+    try:
+        tags = _EIP_client.get_tag_list(_program['name'])
+        # Tag list here is all top level tags of the program
+        sortAndProvideTags(_ctrlxDatalayerProvider, _plc, _EIP_client, tags)
+    except:
+        myLogger("Program tags for: " + _program['name'] + "of device: " + _plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
+
+def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver):
+    """
+    Provides all device tags to ctrlx datalayer provider and adds PLC and EIP client to global list          
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+        :param _plc: = PyLogix PLC
+        :param _EIP_client: = LogixDriver
+    """
+    try:
+        tags = _EIP_client.get_tag_list('*')
+        sortAndProvideTags(_ctrlxDatalayerProvider,_plc,_EIP_client,tags)
+    except:
+        myLogger("Device tags at: " + _plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
+
+def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider) -> typing.Tuple[PLC,LogixDriver]:
     """
     Handles program execution outside of the snap context            
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-        :return plc: = Pylogix PLC object
+        :return plc: = PyLogix PLC
         :return EIP_client: = LogixDriver
     """
     plc = PLC()
@@ -90,50 +136,23 @@ def localExecution(_ctrlxDatalayerProvider):
         # Establish EIP client connection to PLC
         EIP_client = LogixDriver(plc.IPAddress)
         EIP_client.open()
+        print("Opening EIP client for: " + EIP_client.info['name'])
         # Use a single PLC and single program for debug and testing... _TODO make this detect all PLCs like embedded app
         program = configData['controllers'][0]['programs'][0]
-        tags = EIP_client.get_tag_list(program['name'])
-        print(EIP_client.info['name'])
-        # Tag list here is all top level tags of the program
-        for tag in tags:
-            # Sort sub-tags to determine paths and add all tags to provider node list
-            sortedTags = tagSorter(tag)    
-            for sortedTag in sortedTags:
-                AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, plc, EIP_client))
+        provideAllDeviceTags(_ctrlxDatalayerProvider,plc, EIP_client)
+        #provideAllProgramTags(_ctrlxDatalayerProvider, plc, EIP_client, program)
         PLC_LIST.append(plc)
         EIP_CLIENT_LIST.append(EIP_client)
         return plc, EIP_client          
     except:
-        myLogger("Controller at " + plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
+        myLogger("Local execution failure.", logging.ERROR, source=__name__)
         return None, None
         
-def provideAllDeviceTags(_ctrlxDatalayerProvider, _device):
-    """
-    Provides all device tags to ctrlx datalayer provider           
-        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider object
-        :param _device: = Pylogix Device object
-        :return plc: = PLC object
-        :return EIP_client: = LogixDriver
-    """
-    plc = PLC()
-    plc.IPAddress = _device.IPAddress
-    try:
-        with LogixDriver(_device.IPAddress) as EIP_client:
-            tags = EIP_client.get_tag_list('*')
-            for t in tags:
-                sortedTags = tagSorter(t)      
-                for sortedTag in sortedTags:
-                    AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, plc, EIP_client))
-            return plc, EIP_client
-    except:
-        myLogger("Controller at " + plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
-        return None, None 
-
 def runApp(_ctrlxDatalayerProvider):
     snap_path = os.getenv('SNAP')
 
     with PLC() as plc:
-        devices = plc.Discover() # Find all of the EIP devices
+        devices = plc.Discover() # Scan EIP network to discover devices
         for device in devices.Value: 
             message = 'Found Device: ' + device.IPAddress + '  Product Code: ' + device.ProductName + " " + str(device.ProductCode) + '  Vendor/Device ID:' + device.Vendor + " " + str(device.DeviceID) + '  Revision/Serial:' + device.Revision + " " + device.SerialNumber
             myLogger(message, logging.INFO, source=__name__)
@@ -199,14 +218,9 @@ def runApp(_ctrlxDatalayerProvider):
 # ---------------------------- NETWORK SCANNING IS ENABLED AND DEVICES WERE FOUND --------------------------------------           
         elif devices.Value != []: 
             print("Adding auto-scanned device tags")
-            firstDevice = True
             for device in devices.Value:
-                if firstDevice:
-                    plc, EIP_client = provideAllDeviceTags(_ctrlxDatalayerProvider, device)
-                    firstDevice = False
-                else:
-                    provideAllDeviceTags(_ctrlxDatalayerProvider,device)
-            return plc,EIP_client
+                # _TODO create PLC and EIP_clients for each device
+                provideAllDeviceTags(_ctrlxDatalayerProvider, device)
 # ---------------------------- NETWORK SCANNING IS ENABLED AND DEVICES WERE NOT FOUND -----------------------------------                                     
         else:
             print('No devices found on startup') 
@@ -242,9 +256,8 @@ def main():
             # Get the time the files was modified
             fileTime =  os.stat(configPath).st_mtime
 
-            # If nodes exist in node list, and connection to PLC is active, continue running
-            # _TODO want to check global objects here rather than local scope
-            if AB_NODE_LIST is not None and plc is not None and EIP_client is not None:       
+            # If nodes exist in node list, plc objects and EIP clients exist, keep running
+            if AB_NODE_LIST is not None and PLC_LIST is not None and EIP_CLIENT_LIST is not None:       
                 myLogger('INFO Running endless loop...', logging.INFO, source=__name__)
                 while ctrlxDatalayerProvider.is_connected():
                     if (fileTime == os.stat(configPath).st_mtime):
@@ -273,7 +286,6 @@ def main():
         # Attention: Doesn't return if any provider or client instance is still running
         stop_ok = datalayer_system.stop(False)
         myLogger('System Stop: ' + str(stop_ok), logging.INFO, source=__name__)
-
 
 if __name__ == '__main__':
     main()
