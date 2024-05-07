@@ -28,7 +28,7 @@ import time
 import json
 import ctrlxdatalayer
 from ctrlxdatalayer.variant import Result
-from pylogix import PLC, lgx_device
+from pylogix import PLC
 import logging
 import logging.handlers
 import typing
@@ -109,6 +109,9 @@ def provideAllProgramTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provid
     except:
         myLogger("Program tags for: " + _program['name'] + "of device: " + _plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
 
+def provideSpecifiedProgramTags():
+    print("NOT IMPLEMENTED")
+
 def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver):
     """
     Provides all device tags to ctrlx datalayer provider and adds PLC and EIP client to global list          
@@ -120,8 +123,27 @@ def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         tags = _EIP_client.get_tag_list('*')
         sortAndProvideTags(_ctrlxDatalayerProvider,_plc,_EIP_client,tags)
     except:
-        myLogger("Device tags at: " + _plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
+        myLogger("Device tags of device: " + _plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
 
+def createPLCAndConnectEIPClient(_ipAddress:str) -> typing.Tuple[PLC,LogixDriver]:
+    """
+    Creates a new PyLogix PLC and opens an EIP connection at the specified IP address        
+        :param _ipAddress: = IP address of Logix PLC
+        :return plc: = PyLogix PLC
+        :return EIP_client: = LogixDriver
+    """
+    try:
+        plc = PLC()
+        plc.IPAddress = _ipAddress
+        EIP_client = LogixDriver(plc.IPAddress)
+        EIP_client.open()
+        print("Opening EIP client for: " + EIP_client.info['name'])
+        PLC_LIST.append(plc)
+        EIP_CLIENT_LIST.append(EIP_client)
+        return plc, EIP_client
+    except:
+        myLogger("Failed to open EIP client for: " + EIP_client.info['name'] + " at: " + plc.IPAddress, logging.ERROR, source=__name__)
+    
 def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider) -> typing.Tuple[PLC,LogixDriver]:
     """
     Handles program execution outside of the snap context            
@@ -129,33 +151,27 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider) -> 
         :return plc: = PyLogix PLC
         :return EIP_client: = LogixDriver
     """
-    plc = PLC()
-    plc.IPAddress = configData['controllers'][0]['ip']
     print("running local...")
     try:
         # Establish EIP client connection to PLC
-        EIP_client = LogixDriver(plc.IPAddress)
-        EIP_client.open()
-        print("Opening EIP client for: " + EIP_client.info['name'])
+        plc, EIP_client = createPLCAndConnectEIPClient(configData['controllers'][0]['ip'])
         # Use a single PLC and single program for debug and testing... _TODO make this detect all PLCs like embedded app
         program = configData['controllers'][0]['programs'][0]
         provideAllDeviceTags(_ctrlxDatalayerProvider,plc, EIP_client)
-        #provideAllProgramTags(_ctrlxDatalayerProvider, plc, EIP_client, program)
-        PLC_LIST.append(plc)
-        EIP_CLIENT_LIST.append(EIP_client)
-        return plc, EIP_client          
+        #provideAllProgramTags(_ctrlxDatalayerProvider, plc, EIP_client, program)        
     except:
         myLogger("Local execution failure.", logging.ERROR, source=__name__)
-        return None, None
         
 def runApp(_ctrlxDatalayerProvider):
     snap_path = os.getenv('SNAP')
 
+    # This top level plc is only used for network discovery
     with PLC() as plc:
         devices = plc.Discover() # Scan EIP network to discover devices
         for device in devices.Value: 
             message = 'Found Device: ' + device.IPAddress + '  Product Code: ' + device.ProductName + " " + str(device.ProductCode) + '  Vendor/Device ID:' + device.Vendor + " " + str(device.DeviceID) + '  Revision/Serial:' + device.Revision + " " + device.SerialNumber
             myLogger(message, logging.INFO, source=__name__)
+# -----------------------------EMBEDDED EXECUTION ---------------------------------------------------------------------- 
     if snap_path is not None: # This means the app is deployed on a target
         # Check configuration for autoscan enable
         myLogger("Autoscan Setting = " + configData['scan'], logging.INFO, source=__name__)
@@ -207,26 +223,24 @@ def runApp(_ctrlxDatalayerProvider):
                                     #pprint.pprint(sortedTags)
                                     for sortedTag in sortedTags:
                                         AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, plc, EIP_client))
-                            return plc, EIP_client
                     except:
                         myLogger("Controller at " + plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__) 
-                        return None, None  
             else:
                 #if no devices were configured in the file, return empty and log the exception
                 myLogger('No devices configured in the configuration data.', logging.ERROR, source=__name__)
                 return None, None
 # ---------------------------- NETWORK SCANNING IS ENABLED AND DEVICES WERE FOUND --------------------------------------           
         elif devices.Value != []: 
-            print("Adding auto-scanned device tags")
+            print("Adding auto-scanned device tags...")
             for device in devices.Value:
-                # _TODO create PLC and EIP_clients for each device
+                createPLCAndConnectEIPClient(device.IPAddress)
                 provideAllDeviceTags(_ctrlxDatalayerProvider, device)
 # ---------------------------- NETWORK SCANNING IS ENABLED AND DEVICES WERE NOT FOUND -----------------------------------                                     
         else:
-            print('No devices found on startup') 
+            print('No devices found on startup.') 
 # -----------------------------LOCAL EXECUTION -------------------------------------------------------------------------- 
     else:
-        return localExecution(_ctrlxDatalayerProvider)
+        localExecution(_ctrlxDatalayerProvider)
                   
 def main():
 
@@ -251,7 +265,7 @@ def main():
                 return
             
             # START THE APPLICATION           
-            plc, EIP_client = runApp(ctrlxDatalayerProvider)
+            runApp(ctrlxDatalayerProvider)
 
             # Get the time the files was modified
             fileTime =  os.stat(configPath).st_mtime
@@ -275,7 +289,7 @@ def main():
                         for client in EIP_CLIENT_LIST:
                             client.close()
                             del client
-                        plc, EIP_client = runApp(ctrlxDatalayerProvider)
+                        runApp(ctrlxDatalayerProvider)
             else: 
                 myLogger("Improperly configured application, see application log.", logging.ERROR, source=__name__)            
 
