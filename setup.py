@@ -2,9 +2,10 @@ from setuptools import setup
 
 setup(
     name='AB-Connector',
-    version='2.1.8',
-    description='This app will find and add all data from Allen-Bradley Controllers on the local network to the data-layer',
-    author='SDK Team',
+    version='3.0.0',
+    description='This app provides Allen-Bradley PLC tags as datalayer nodes',
+    author='alex4acre, S-Gilk',
+    setup_requires = ['wheel'],
     install_requires = ['ctrlx-datalayer', 'pylogix', 'pycomm3'],    
     packages=['app', 'helper'],
     # https://stackoverflow.com/questions/1612733/including-non-python-files-with-setup-py

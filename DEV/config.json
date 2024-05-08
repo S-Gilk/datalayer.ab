@@ -1,20 +1,23 @@
 {
+  "LOG LEVEL": "DEBUG",
   "ctrlX provider": {
-    "ip":"10.0.2.2",
-    "port":"8443"
+    "local": false,
+    "ip":"192.168.1.101",
+    "port":"443"
   },    
-  "scan": "true",
+  "scan": false,
   "controllers": [
     {
       "name": "Machine1",
-      "ip": "192.168.2.10",
+      "ip": "192.168.1.50",
       "tags": [
         "iTest",
         "bTest"
       ],
       "programs": [
         {
-          "name": "MainProgram"
+          "name": "MainProgram",
+          "tags": ["arData100"]
         },
         {
           "name": "SecondProgram"

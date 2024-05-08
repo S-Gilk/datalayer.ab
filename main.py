@@ -33,10 +33,9 @@ import logging
 import logging.handlers
 import typing
 from pycomm3 import LogixDriver
-from app.helper.ctrlx_datalayer_helper import get_provider
+from helper.ctrlx_datalayer_helper import get_provider
 from app.ab_util import myLogger, addData
-from app.pycomm3.sorter import tagSorter
-
+from app.sorter import tagSorter
 
 def loadConfig() -> typing.Tuple[str,str,object]:
     """
@@ -68,6 +67,10 @@ def loadConfig() -> typing.Tuple[str,str,object]:
     try:
         with open(configPath) as jsonConfig:
             configData = json.load(jsonConfig)
+            # Set log level based on configured value
+            if(configData["LOG LEVEL"]):
+                            logLevel = configData["LOG LEVEL"]
+                            logging.getLogger().setLevel(logging.getLevelName(logLevel))
             myLogger("Config data: " + str(configData), logging.INFO)
     except Exception as e:
         myLogger("Failed to read config.json. Exception: "  + repr(e), logging.ERROR, source=__name__)
@@ -133,10 +136,10 @@ def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Pr
             # Format tag path based on controller or program tag type
             if not _controller: 
                 tag = "Program:" + _scope['name'] + "." + tag
-                _EIP_client.get_tag_list(_scope['name']) # Need to cache tag list for get_tag_info()
+                tagList = _EIP_client.get_tag_list(_scope['name']) # Need to cache tag list for get_tag_info()
             else:
                 tag = tag
-                t = _EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
+                tagList = _EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
             # Get specified tag info from the EIP client
             locatedTag = _EIP_client.get_tag_info(tag)
             # Add tag info to located tags array
@@ -228,11 +231,11 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     print("Running local...")
     try:
         # -------------------------- OPTION 1: NO AUTOSCAN ------------------------------
-        if configData['scan'] != "true":
-            provideNodesAutoscan(_ctrlxDatalayerProvider)
+        if configData['scan'] != True:
+            provideNodesByConfig(_ctrlxDatalayerProvider)
         # ---------------------------- OPTION 2: AUTOSCAN -------------------------------
         else:
-            provideNodesByConfig(_ctrlxDatalayerProvider)
+            provideNodesAutoscan(_ctrlxDatalayerProvider)
     except Exception as e:
          myLogger("Local execution failure: " + repr(e), logging.ERROR, source=__name__)
         
@@ -243,21 +246,21 @@ def runABProvider(_ctrlxDatalayerProvider):
     """
     snap_path = os.getenv('SNAP')
     # Check configuration for autoscan enable
-    myLogger("Autoscan Setting = " + configData['scan'], logging.INFO, source=__name__)
-# -----------------------------EMBEDDED EXECUTION ---------------------------------------------------------------------- 
-    if snap_path is not None: # This means the app is deployed on a target
-# ---------------------------- NETWORK SCANNING IS DISABLED ------------------------------------------------------------             
-        if configData['scan'] != "true":
+    myLogger("Autoscan Setting = " + str(configData['scan']), logging.INFO, source=__name__)
+# ---------------------------------- EMBEDDED EXECUTION ----------------------------------------------------------------
+    if snap_path is not None:
+        # This means the app is deployed on a target
+# ----------------------------- NETWORK SCANNING IS DISABLED -----------------------------------------------------------            
+        if configData['scan'] != True:
             provideNodesByConfig(_ctrlxDatalayerProvider)
-# ---------------------------- NETWORK SCANNING IS ENABLED -------------------------------------------------------------           
+# ----------------------------- NETWORK SCANNING IS ENABLED ------------------------------------------------------------           
         else:
             provideNodesAutoscan(_ctrlxDatalayerProvider)                             
-# -----------------------------LOCAL EXECUTION -------------------------------------------------------------------------
+# ----------------------------- -----LOCAL EXECUTION -------------------------------------------------------------------
     else:
         localExecution(_ctrlxDatalayerProvider)
                   
 def main():
-
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
@@ -267,9 +270,13 @@ def main():
         datalayer_system.start(False)
 
         # CREATE DATALAYER PROVIDER
-        ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system, 
-                                                                 configData['ctrlX provider']['ip'], 
-                                                                 ssl_port=configData['ctrlX provider']['port'])
+        if(configData["ctrlX provider"]["local"] != True):
+            ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system, 
+                                                                    configData['ctrlX provider']['ip'], 
+                                                                    ssl_port=configData['ctrlX provider']['port'])
+        else:
+            ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system)
+
         if ctrlxDatalayerProvider is None:
             myLogger("Connecting to " + connection_string + " failed.", logging.ERROR, source=__name__)
             sys.exit(1)

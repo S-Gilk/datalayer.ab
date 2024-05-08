@@ -28,7 +28,6 @@ from ctrlxdatalayer.variant import Result, Variant
 from pylogix import PLC
 from comm.datalayer import NodeClass
 from ctrlxdatalayer.metadata_utils import MetadataBuilder
-import logging
 
 class ABnode:
 
@@ -57,11 +56,6 @@ class ABnode:
             read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=True,
             type_path = "")
         
-        #copies the data from the list to the active data when initialized
-        #self.updateVariantValue()
-        #
-        #print("metadata:",self.metadata)
-
     def register_node(self):
       self.provider.register_node(self.address, self.providerNode)      
     
@@ -72,15 +66,12 @@ class ABnode:
         self.data = value
 
     def __on_create(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
-        #print("__on_create()", "address:", address, "userdata:", userdata)
         cb(Result.OK, data)
 
     def __on_remove(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_remove()", "address:", address, "userdata:", userdata)
         cb(Result.UNSUPPORTED, None)
 
     def __on_browse(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_browse()", "address:", address, "userdata:", userdata)
         new_data = Variant()
         new_data.set_array_string([])
         cb(Result.OK, new_data)
@@ -93,7 +84,6 @@ class ABnode:
             new_data = self.data
             cb(Result.OK, new_data)
         except:
-            #myLogger("Failed to read tag " + self.abTagName, logging.WARNING, source=__name__)
             cb(Result.FAILED, new_data)    
         
 
@@ -103,11 +93,9 @@ class ABnode:
             self.writeVariantValue(data)
             cb(Result.OK, self.data)
         except:
-            #myLogger("Failed to write tag " + self.abTagName, logging.WARNING, source=__name__)
             cb(Result.FAILED, self.data)
 
     def __on_metadata(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_metadata()", "address:", address,"metadata:",self.metadata, "userdata:", userdata)
         cb(Result.OK, self.metadata)
 
     def readVariantValue(self, data : object) -> Result:
@@ -142,8 +130,6 @@ class ABnode:
                 return self.data
         except Exception as e:
             print("Failed to read tag: " + self.abTagName + " with exception: " + e)
-            #print(e)
-            #myLogger("Failed to read tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
 
     def writeVariantValue(self, data : Variant):
         try:
@@ -177,8 +163,6 @@ class ABnode:
                 print("Failed to write tag: " + self.abTagName)        
         except Exception as e:
             print("Failed to write tag: " + self.abTagName + " with exception: " + e)
-            #print(e)
-            #myLogger("Failed to write tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
 
     def getVariantType(self, type : str):
         try:
@@ -212,8 +196,6 @@ class ABnode:
                 return "UNKNON"
         except Exception as e:
             print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
-            #print(e)
-            #myLogger("Failed to get type for tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
 
     def updateVariantValue(self) -> Result:
         return self.readVariantValue(self.abTagValues[self.listIndex])
@@ -239,19 +221,11 @@ class ABnode_Array:
         self.controller = controller
         self.dataType = self.getVariantType(type)
         self.type = type
-        #self.dataTypeValue = dataTypeValue
-        
-
 
         self.metadata = MetadataBuilder.create_metadata(
             self.abTagName, self.abTagName, "", "", NodeClass.NodeClass.Variable, 
             read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=False,
             type_path= self.dataType)
-        
-        #copies the data from the list to the active data when initialized
-        #self.updateVariantValue()
-        #
-        #print("metadata:",self.metadata)
 
     def register_node(self):
       self.provider.register_node(self.address, self.providerNode)      
@@ -263,15 +237,12 @@ class ABnode_Array:
         self.data = value
 
     def __on_create(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
-        #print("__on_create()", "address:", address, "userdata:", userdata)
         cb(Result.OK, data)
 
     def __on_remove(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_remove()", "address:", address, "userdata:", userdata)
         cb(Result.UNSUPPORTED, None)
 
     def __on_browse(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_browse()", "address:", address, "userdata:", userdata)
         new_data = Variant()
         new_data.set_array_string([])
         cb(Result.OK, new_data)
@@ -281,19 +252,16 @@ class ABnode_Array:
         print(self.abTagName)
         with self.controller as con:
             ret = con.Read(self.abTagName)
-            #print(ret)
             self.readVariantValue(ret.Value)
         new_data = self.data
         cb(Result.OK, new_data)
 
     def __on_write(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
         _data = data
-        #print(self.abTagName)
         self.writeVariantValue(data)
         cb(Result.OK, self.data)
 
     def __on_metadata(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_metadata()", "address:", address,"metadata:",self.metadata, "userdata:", userdata)
         cb(Result.OK, self.metadata)
 
     def readVariantValue(self, data : object) -> Result:

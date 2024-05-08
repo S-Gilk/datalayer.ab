@@ -1,9 +1,9 @@
 name: ab-connector
-version: 2.1.8
+version: 3.0.0
 summary: Data Layer provider for Allen-Bradley Tags
 title: ab-connector
 description: |
-  This app will find and add all data from Allen-Bradley Controllers on the local network to the data-layer.
+  This app will find and add configured data from Allen-Bradley Controllers on the local network to the ctrlX datalayer.
 
   MIT License
 

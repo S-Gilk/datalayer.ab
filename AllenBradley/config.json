@@ -1,26 +1,27 @@
 {
-    "scan": "true",
-    "controllers": [
-      {
-        "ip": "192.168.1.90",
-        "programs": [
-          {
-            "MainProgram": {
-              "tags": [
-                "Accel",
-                "SFK4H_VariableManager"
-              ]
-            }
-          },
-          {
-            "controller": {
-              "tags": [
-                "iCounter",
-                "arErrData"
-              ]
-            }
-          }
-        ]
-      }
-    ]
-  }
+  "ctrlX provider": {
+    "local": false,
+    "ip":"192.168.1.101",
+    "port":"443"
+  },    
+  "scan": false,
+  "controllers": [
+    {
+      "name": "Machine1",
+      "ip": "192.168.1.50",
+      "tags": [
+        "iTest",
+        "bTest"
+      ],
+      "programs": [
+        {
+          "name": "MainProgram",
+          "tags": ["arData100"]
+        },
+        {
+          "name": "SecondProgram"
+        }
+      ]
+    }
+  ]
+}

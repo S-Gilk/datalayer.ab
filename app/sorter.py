@@ -1,13 +1,9 @@
-from pycomm3 import LogixDriver
 import pprint
  
 
 def Sorter(dataLayerPath, controllerPath, tag):    
     tagList = []
     if 'dimensions' in tag:
-        #print(dataLayerPath)
-        #print("tag type: " + tag['tag_type'])
-        #print("dimensions: " + str(tag['dimensions']))
         tag_type = tag['tag_type']
         index = 0
         if tag["dimensions"][0] != 0:
@@ -18,7 +14,6 @@ def Sorter(dataLayerPath, controllerPath, tag):
                     tagList.append(abTagTuple)
                 elif tag_type == 'struct' and tag['data_type_name'] != 'STRING':
                     for attribute in tag['data_type']['attributes']:
-                        #tagList.append(Sorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute]))
                         tagTupleList = Sorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute])
                         for tagTuple in tagTupleList:
                             tagList.append(tagTuple)
@@ -33,10 +28,7 @@ def Sorter(dataLayerPath, controllerPath, tag):
                     abTagTuple = (dataLayerPath, controllerPath, dataType)
                     tagList.append(abTagTuple)
             elif tag_type == 'struct' and tag['data_type_name'] != 'STRING' :
-                #print(tag['data_type']['attributes'])
                 for attribute in tag['data_type']['attributes']:
-                    #print(attribute)
-                    #tagList.append(Sorter(dataLayerPath + "/" + attribute, controllerPath + "." + attribute, tag['data_type']['internal_tags'][attribute])) 
                     tagTupleList = Sorter(dataLayerPath + "/" + attribute, controllerPath + "." + attribute, tag['data_type']['internal_tags'][attribute])
                     for tagTuple in tagTupleList:
                         tagList.append(tagTuple)
@@ -45,10 +37,7 @@ def Sorter(dataLayerPath, controllerPath, tag):
                     abTagTuple = (dataLayerPath, controllerPath, dataType)
                     tagList.append(abTagTuple)            
                     
-    elif 'array' in tag:
-        #print(dataLayerPath)  
-        #print("tag type: " + tag['tag_type'])   
-        #print("dimensions: " + str(tag['array']))   
+    elif 'array' in tag: 
         tag_type = tag['tag_type']               
         index = 1
         if tag["array"] != 0:
@@ -59,7 +48,6 @@ def Sorter(dataLayerPath, controllerPath, tag):
                     tagList.append(abTagTuple)
                 elif tag_type == 'struct' and tag['data_type_name'] != 'STRING':
                     for attribute in tag['data_type']['attributes']:
-                        #tagList.append(Sorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute]))
                         tagTupleList = Sorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute])
                         for tagTuple in tagTupleList:
                             tagList.append(tagTuple)
@@ -74,9 +62,7 @@ def Sorter(dataLayerPath, controllerPath, tag):
                     abTagTuple = (dataLayerPath, controllerPath, dataType)
                     tagList.append(abTagTuple)
             elif tag_type == 'struct'and tag['data_type_name'] != 'STRING':
-                #print(tag['data_type']['attributes'])
                 for attribute in tag['data_type']['attributes']:
-                    #print(attribute)
                     tagTupleList = Sorter(dataLayerPath + "/" + attribute,  controllerPath + '.' + attribute, tag['data_type']['internal_tags'][attribute])
                     for tagTuple in tagTupleList:
                         tagList.append(tagTuple)
@@ -85,9 +71,6 @@ def Sorter(dataLayerPath, controllerPath, tag):
                     abTagTuple = (dataLayerPath, controllerPath, dataType)
                     tagList.append(abTagTuple)                     
     if 'bit' in tag:
-        #print(dataLayerPath)  
-        #print("tag type: " + tag['tag_type'])   
-        #print("dimensions: BOOL") 
         tag_type = tag['tag_type']               
         if tag_type == 'atomic':
                 dataType = tag['data_type']
