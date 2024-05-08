@@ -78,7 +78,6 @@ configPath,logPath,configData = loadConfig()
 
 # Define global variables
 AB_NODE_LIST = []
-SORTED_TAGS = []
 PLC_LIST = []
 EIP_CLIENT_LIST = []
 
@@ -149,7 +148,6 @@ def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Pr
         myLogger("Specified program tags for: " + _scope['name'] + " of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
 def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver):
-
     """
     Provides all device tags to ctrlx datalayer provider and adds PLC and EIP client to global list          
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
@@ -179,8 +177,49 @@ def createPLCAndConnectEIPClient(_ipAddress:str) -> typing.Tuple[PLC,LogixDriver
         EIP_CLIENT_LIST.append(EIP_client)
         return plc, EIP_client
     except Exception as e:
-        myLogger("Failed to open EIP client for: " + EIP_client.info['name'] + " at: " + plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
-    
+        myLogger("Failed to open EIP client at: " + plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
+
+def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
+    """
+    Provides nodes to the ctrlX datalayer as described in config.json       
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+    """ 
+    # Loop through each controller defined in config.json
+    for controller in configData['controllers']:              
+        # Establish EIP client connection to each controller
+        plc, EIP_client = createPLCAndConnectEIPClient(controller['ip']) 
+        # If tag list exists at controller level, provide specified tags
+        if "tags" in controller:
+            provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
+        # If no tag list exists at controller level, provide all controller scoped tags
+        else:
+            provideAllScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
+        # Loop through each program in the controller programs array
+        for program in controller['programs']:
+            # If a tag list exists in the program, provide specified tags
+            if "tags" in program:
+                provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, program, False)                         
+            # If no tag list exists in the program, provide all program scoped tags
+            else:
+                provideAllScopeTags(_ctrlxDatalayerProvider, plc, EIP_client, program, False)
+
+def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
+    """
+    Provides all device nodes to the datalayer discovered via EIP network scan  
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+    """ 
+    # Create a scoped scanner PLC object. This will be destroyed once tags have been added
+    with PLC() as scanner:
+        # Scan EIP network for devices
+        devices = scanner.Discover() 
+        for device in devices.Value: 
+            message = 'Found Device: ' + device.IPAddress + '  Product Code: ' + device.ProductName + " " + str(device.ProductCode) + '  Vendor/Device ID:' + device.Vendor + " " + str(device.DeviceID) + '  Revision/Serial:' + device.Revision + " " + device.SerialNumber
+            myLogger(message, logging.INFO, source=__name__)
+            # Create PLC object and EIP client for each discovered device
+            createPLCAndConnectEIPClient(device.IPAddress)
+            # Provide all device tags for each discovered device
+            provideAllDeviceTags(_ctrlxDatalayerProvider, device)
+
 def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     """
     Handles program execution outside of the snap context            
@@ -190,107 +229,30 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     try:
         # -------------------------- OPTION 1: NO AUTOSCAN ------------------------------
         if configData['scan'] != "true":
-            # Loop through each controller defined in config.json
-            for controller in configData['controllers']:              
-                # Establish EIP client connection to each controller
-                plc, EIP_client = createPLCAndConnectEIPClient(controller['ip']) 
-                # If tag list exists at controller level, provide specified tags
-                if "tags" in controller:
-                    provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
-                # If no tag list exists at controller level, provide all controller scoped tags
-                else:
-                    provideAllScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
-                # Loop through each program in the controller programs array
-                for program in controller['programs']:
-                    # If a tag list exists in the program, provide specified tags
-                    if "tags" in program:
-                        provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, program, False)                         
-                    # If no tag list exists in the program, provide all program scoped tags
-                    else:
-                        provideAllScopeTags(_ctrlxDatalayerProvider, plc, EIP_client, program)
+            provideNodesAutoscan(_ctrlxDatalayerProvider)
         # ---------------------------- OPTION 2: AUTOSCAN -------------------------------
         else:
-            t = 6
+            provideNodesByConfig(_ctrlxDatalayerProvider)
     except Exception as e:
          myLogger("Local execution failure: " + repr(e), logging.ERROR, source=__name__)
         
-def runApp(_ctrlxDatalayerProvider):
+def runABProvider(_ctrlxDatalayerProvider):
+    """
+    Executes logic to provide configured or scanned tags to the configured ctrlX OS datalayer broker        
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+    """
     snap_path = os.getenv('SNAP')
-
-    # This top level plc is only used for network discovery
-    with PLC() as plc:
-        devices = plc.Discover() # Scan EIP network to discover devices
-        for device in devices.Value: 
-            message = 'Found Device: ' + device.IPAddress + '  Product Code: ' + device.ProductName + " " + str(device.ProductCode) + '  Vendor/Device ID:' + device.Vendor + " " + str(device.DeviceID) + '  Revision/Serial:' + device.Revision + " " + device.SerialNumber
-            myLogger(message, logging.INFO, source=__name__)
+    # Check configuration for autoscan enable
+    myLogger("Autoscan Setting = " + configData['scan'], logging.INFO, source=__name__)
 # -----------------------------EMBEDDED EXECUTION ---------------------------------------------------------------------- 
     if snap_path is not None: # This means the app is deployed on a target
-        # Check configuration for autoscan enable
-        myLogger("Autoscan Setting = " + configData['scan'], logging.INFO, source=__name__)
 # ---------------------------- NETWORK SCANNING IS DISABLED ------------------------------------------------------------             
         if configData['scan'] != "true":
-            #if the auto scan is not true then load controllers from file
-            if "controllers" in configData:
-                applications = configData['controllers']
-                for application in applications:
-                    myLogger('Loading configuration for ' + application, logging.INFO, source=__name__)
-                    plc = PLC()
-                    plc.IPAddress = application["ip"]
-                    myLogger("Adding controller at " + application["ip"], logging.INFO, source=__name__)
-                    try:
-                        with LogixDriver(device.IPAddress) as EIP_client:
-                            if "programs" in application:
-                                for programs in application["programs"]:
-                                    #cycle through the programs in the application
-                                    for program in programs.keys():
-                                        if "tags" in programs[program]:
-                                            for tag in programs[program]["tags"]:
-                                                #cycle through the tags in the configuration file
-                                                if program != "controller": 
-                                                    tag = "Program:" + program + "." + tag
-                                                else:
-                                                    tag = tag
-                                                print('Adding Tag: ' + tag)
-                                                sortedTags = tagSorter(EIP_client.get_tag_info(tag))        
-                                                for sortedTag in sortedTags:
-                                                    AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, plc, EIP_client))
-                                        else:       
-                                            #if the tags are not explicit in the file 
-                                            if program != "controller": 
-                                                tagPath = "Program:" + program
-                                            else:
-                                                tagPath = ""
-                                            tags = EIP_client.get_tag_list(tagPath) 
-                                            for tag in tags:
-                                                if tag['tag_name'].find("Program:.") != -1:
-                                                    tag['tag_name'] = tag['tag_name'].split(".")[1]
-                                                sortedTags = tagSorter(tag)        
-                                                for sortedTag in sortedTags:
-                                                    AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, plc, EIP_client))                                                      
-                            else:
-                                tags = EIP_client.get_tag_list('*')
-                                for tag in tags:
-                                    #pass each tag to the tag sorter which returns 
-                                    sortedTags = tagSorter(tag)       
-                                    #pprint.pprint(sortedTags)
-                                    for sortedTag in sortedTags:
-                                        AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, plc, EIP_client))
-                    except:
-                        myLogger("Controller at " + plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__) 
-            else:
-                #if no devices were configured in the file, return empty and log the exception
-                myLogger('No devices configured in the configuration data.', logging.ERROR, source=__name__)
-                return None, None
-# ---------------------------- NETWORK SCANNING IS ENABLED AND DEVICES WERE FOUND --------------------------------------           
-        elif devices.Value != []: 
-            print("Adding auto-scanned device tags...")
-            for device in devices.Value:
-                createPLCAndConnectEIPClient(device.IPAddress)
-                provideAllDeviceTags(_ctrlxDatalayerProvider, device)
-# ---------------------------- NETWORK SCANNING IS ENABLED AND DEVICES WERE NOT FOUND -----------------------------------                                     
+            provideNodesByConfig(_ctrlxDatalayerProvider)
+# ---------------------------- NETWORK SCANNING IS ENABLED -------------------------------------------------------------           
         else:
-            print('No devices found on startup.') 
-# -----------------------------LOCAL EXECUTION -------------------------------------------------------------------------- 
+            provideNodesAutoscan(_ctrlxDatalayerProvider)                             
+# -----------------------------LOCAL EXECUTION -------------------------------------------------------------------------
     else:
         localExecution(_ctrlxDatalayerProvider)
                   
@@ -305,7 +267,9 @@ def main():
         datalayer_system.start(False)
 
         # CREATE DATALAYER PROVIDER
-        ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system, configData['ctrlX provider']['ip'], ssl_port=configData['ctrlX provider']['port'])
+        ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system, 
+                                                                 configData['ctrlX provider']['ip'], 
+                                                                 ssl_port=configData['ctrlX provider']['port'])
         if ctrlxDatalayerProvider is None:
             myLogger("Connecting to " + connection_string + " failed.", logging.ERROR, source=__name__)
             sys.exit(1)
@@ -317,7 +281,7 @@ def main():
                 return
             
             # START THE APPLICATION           
-            runApp(ctrlxDatalayerProvider)
+            runABProvider(ctrlxDatalayerProvider)
 
             # Get the time the files was modified
             fileTime =  os.stat(configPath).st_mtime
@@ -341,7 +305,7 @@ def main():
                         for plc in PLC_LIST:
                             plc.Close()
                             del plc
-                        runApp(ctrlxDatalayerProvider)
+                        runABProvider(ctrlxDatalayerProvider)
             else: 
                 myLogger("Improperly configured application, see application log.", logging.ERROR, source=__name__)            
 

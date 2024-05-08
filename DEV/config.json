@@ -3,7 +3,7 @@
     "ip":"10.0.2.2",
     "port":"8443"
   },    
-  "scan": "false",
+  "scan": "true",
   "controllers": [
     {
       "name": "Machine1",
@@ -14,10 +14,10 @@
       ],
       "programs": [
         {
-          "name": "MainProgram",
-          "tags": [
-              
-            ]
+          "name": "MainProgram"
+        },
+        {
+          "name": "SecondProgram"
         }
       ]
     }

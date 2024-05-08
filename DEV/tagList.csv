@@ -1,1 +1,3 @@
-[('bTest', 'bTest', 'BOOL')]
+[('Program:SecondProgram.testString',
+  'Program:SecondProgram.testString',
+  'STRING')]
