@@ -63,9 +63,14 @@ def loadConfig() -> typing.Tuple[str,str,object]:
     # Get the time the files was modified
     fileTime = os.stat(configPath).st_mtime
     myLogger("Config modified at UNIX TIME " + str(fileTime), logging.INFO)
-    with open(configPath) as jsonConfig:
-        configData = json.load(jsonConfig)
-        myLogger("Config data: " + str(configData), logging.INFO)
+
+    # Read config.json
+    try:
+        with open(configPath) as jsonConfig:
+            configData = json.load(jsonConfig)
+            myLogger("Config data: " + str(configData), logging.INFO)
+    except Exception as e:
+        myLogger("Failed to read config.json. Exception: "  + repr(e), logging.ERROR, source=__name__)
     return configPath,logPath,configData
 
 # Load global configuration data
@@ -91,28 +96,60 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
             sortedTags = tagSorter(tag)    
             for sortedTag in sortedTags:
                 AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, _plc, _EIP_client))
-    except:
-        myLogger("Failed to sort and provide tags for device: " + _plc.IPAddress, logging.ERROR, source=__name__)
+    except Exception as e:
+        myLogger("Failed to sort and provide tags for device: " + _plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideAllProgramTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _program:str):
+def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller: bool):
     """
     Provides all program tags to the ctrlX datalayer provider
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
         :param _plc: = PyLogix PLC
         :param _EIP_client: = LogixDriver
-        :param _program: = PLC program name to load tags from
+        :param _scope: = PLC program or controller object from config.json
+        :param _controller: = Boolean flag to indicate controller scope (TRUE = controller scope)
     """
     try:
-        tags = _EIP_client.get_tag_list(_program['name'])
+        if(_controller):
+            tags = _EIP_client.get_tag_list()
+        else:            
+            tags = _EIP_client.get_tag_list(_scope['name'])
         # Tag list here is all top level tags of the program
         sortAndProvideTags(_ctrlxDatalayerProvider, _plc, _EIP_client, tags)
-    except:
-        myLogger("Program tags for: " + _program['name'] + "of device: " + _plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
+    except Exception as e:
+        myLogger("Scope tags for: " + _scope['name'] + "of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideSpecifiedProgramTags():
-    print("NOT IMPLEMENTED")
+def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller:bool):
+    """
+    Provides specified program tags to the ctrlX datalayer provider
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+        :param _plc: = PyLogix PLC
+        :param _EIP_client: = LogixDriver
+        :param _scope: = PLC program or controller object from config.json
+        :param _controller: = Boolean flag to indicate controller scope (TRUE = controller scope)
+    """
+    try:
+        # Loop through each tag in the config.json program tags array
+        locatedTags = []
+        for tag in _scope['tags']:
+            # Format tag path based on controller or program tag type
+            if not _controller: 
+                tag = "Program:" + _scope['name'] + "." + tag
+                _EIP_client.get_tag_list(_scope['name']) # Need to cache tag list for get_tag_info()
+            else:
+                tag = tag
+                t = _EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
+            # Get specified tag info from the EIP client
+            locatedTag = _EIP_client.get_tag_info(tag)
+            # Add tag info to located tags array
+            locatedTags.append(locatedTag)
+        # Sort and provide all located tags
+        sortAndProvideTags(_ctrlxDatalayerProvider, _plc, _EIP_client,locatedTags)
+            
+    except Exception as e:
+        myLogger("Specified program tags for: " + _scope['name'] + " of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
 def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver):
+
     """
     Provides all device tags to ctrlx datalayer provider and adds PLC and EIP client to global list          
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
@@ -122,8 +159,8 @@ def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
     try:
         tags = _EIP_client.get_tag_list('*')
         sortAndProvideTags(_ctrlxDatalayerProvider,_plc,_EIP_client,tags)
-    except:
-        myLogger("Device tags of device: " + _plc.IPAddress + " could not be loaded.", logging.ERROR, source=__name__)
+    except Exception as e:
+        myLogger("Device tags of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
 def createPLCAndConnectEIPClient(_ipAddress:str) -> typing.Tuple[PLC,LogixDriver]:
     """
@@ -137,30 +174,45 @@ def createPLCAndConnectEIPClient(_ipAddress:str) -> typing.Tuple[PLC,LogixDriver
         plc.IPAddress = _ipAddress
         EIP_client = LogixDriver(plc.IPAddress)
         EIP_client.open()
-        print("Opening EIP client for: " + EIP_client.info['name'])
+        print("Opening EIP client for: " + EIP_client.info['name'] + " at: " + plc.IPAddress)
         PLC_LIST.append(plc)
         EIP_CLIENT_LIST.append(EIP_client)
         return plc, EIP_client
-    except:
-        myLogger("Failed to open EIP client for: " + EIP_client.info['name'] + " at: " + plc.IPAddress, logging.ERROR, source=__name__)
+    except Exception as e:
+        myLogger("Failed to open EIP client for: " + EIP_client.info['name'] + " at: " + plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
     
-def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider) -> typing.Tuple[PLC,LogixDriver]:
+def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     """
     Handles program execution outside of the snap context            
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-        :return plc: = PyLogix PLC
-        :return EIP_client: = LogixDriver
     """
-    print("running local...")
+    print("Running local...")
     try:
-        # Establish EIP client connection to PLC
-        plc, EIP_client = createPLCAndConnectEIPClient(configData['controllers'][0]['ip'])
-        # Use a single PLC and single program for debug and testing... _TODO make this detect all PLCs like embedded app
-        program = configData['controllers'][0]['programs'][0]
-        provideAllDeviceTags(_ctrlxDatalayerProvider,plc, EIP_client)
-        #provideAllProgramTags(_ctrlxDatalayerProvider, plc, EIP_client, program)        
-    except:
-        myLogger("Local execution failure.", logging.ERROR, source=__name__)
+        # -------------------------- OPTION 1: NO AUTOSCAN ------------------------------
+        if configData['scan'] != "true":
+            # Loop through each controller defined in config.json
+            for controller in configData['controllers']:              
+                # Establish EIP client connection to each controller
+                plc, EIP_client = createPLCAndConnectEIPClient(controller['ip']) 
+                # If tag list exists at controller level, provide specified tags
+                if "tags" in controller:
+                    provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
+                # If no tag list exists at controller level, provide all controller scoped tags
+                else:
+                    provideAllScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
+                # Loop through each program in the controller programs array
+                for program in controller['programs']:
+                    # If a tag list exists in the program, provide specified tags
+                    if "tags" in program:
+                        provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, program, False)                         
+                    # If no tag list exists in the program, provide all program scoped tags
+                    else:
+                        provideAllScopeTags(_ctrlxDatalayerProvider, plc, EIP_client, program)
+        # ---------------------------- OPTION 2: AUTOSCAN -------------------------------
+        else:
+            t = 6
+    except Exception as e:
+         myLogger("Local execution failure: " + repr(e), logging.ERROR, source=__name__)
         
 def runApp(_ctrlxDatalayerProvider):
     snap_path = os.getenv('SNAP')
@@ -278,17 +330,17 @@ def main():
                         time.sleep(1.0)  # Seconds
                     else:
                         fileTime == os.stat(configPath).st_mtime
-                        myLogger('"ERROR Data Layer Provider is disconnected', logging.ERROR, source=__name__)
+                        myLogger('ERROR Data Layer Provider is disconnected', logging.ERROR, source=__name__)
                         # CLEANUP
                         for node in AB_NODE_LIST:
                             node.unregister_node()
                             del node
-                        for plc in PLC_LIST:
-                            plc.close()
-                            del plc
                         for client in EIP_CLIENT_LIST:
                             client.close()
                             del client
+                        for plc in PLC_LIST:
+                            plc.Close()
+                            del plc
                         runApp(ctrlxDatalayerProvider)
             else: 
                 myLogger("Improperly configured application, see application log.", logging.ERROR, source=__name__)            

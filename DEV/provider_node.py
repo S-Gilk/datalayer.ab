@@ -77,7 +77,6 @@ class ProviderNodeCallbacks:
         self.on_subscribe = on_subscribe
         self.on_unsubscribe = on_unsubscribe
 
-
 class ProviderNode:
     """
         Provider node interface for providing data to the system
@@ -209,3 +208,6 @@ class ProviderNode:
             internal use
         """
         return self.__create_function_data(func)
+
+class ProviderNode2(ProviderNode):
+    t = "test"

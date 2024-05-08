@@ -3,15 +3,20 @@
     "ip":"10.0.2.2",
     "port":"8443"
   },    
-  "scan": "true",
+  "scan": "false",
   "controllers": [
     {
+      "name": "Machine1",
       "ip": "192.168.2.10",
+      "tags": [
+        "iTest",
+        "bTest"
+      ],
       "programs": [
         {
           "name": "MainProgram",
           "tags": [
-              "arReal100"
+              
             ]
         }
       ]
