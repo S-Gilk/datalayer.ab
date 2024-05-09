@@ -11,13 +11,25 @@
       {
         "name": "Machine1",
         "ip": "192.168.1.50",
-        "tags": [
-          "iTest",
-          "bTest"
-        ],
+        "tags": ["iTest","bTest"],
         "programs": [
           {
             "name": "SecondProgram"
+          }
+        ]
+      }
+    ]
+  },
+  "priority tags":{
+    "controllers": [
+      {
+        "name": "Machine1",
+        "ip": "192.168.1.50",
+        "tags" : [],
+        "programs": [
+          {
+            "name": "MainProgram",
+            "tags": ["arData100"]
           }
         ]
       }

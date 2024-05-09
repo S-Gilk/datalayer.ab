@@ -51,6 +51,8 @@ class Controller():
         self.EIP_client = LogixDriver(self.ip)
         self.STANDARD_NODES = []
         self.PRIORITY_NODES = []
+        self.PRIORITY_TAGS = []
+        self.PRIORITY_TAG_TYPES = []
         CONTROLLER_LIST.append(self)
         self.connect()
 
@@ -134,6 +136,8 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
                     _controller.STANDARD_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
                 if _priorityTags:
                      _controller.PRIORITY_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
+                     _controller.PRIORITY_TAGS.append(sortedTag[1])
+                     _controller.PRIORITY_TAG_TYPES.append(sortedTag[2])
     except Exception as e:
         myLogger("Failed to sort and provide tags for device: " + _controller.ip + ". Exception: " + repr(e), logging.ERROR, source=__name__)
 
@@ -147,7 +151,7 @@ def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider
         :param _priorityTags: = boolean flag to indicate tags should be added to bulk read node list (TRUE = include in bulk read node list)
     """
     try:
-        if(_controllerScope):
+        if _controllerScope:
             tags = _controller.EIP_client.get_tag_list()
         else:            
             tags = _controller.EIP_client.get_tag_list(_config['name'])
@@ -168,13 +172,13 @@ def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Pr
     try:
         # Loop through each tag in the config.json program tags array
         locatedTags = []
-        if not _controller:
+        if not _controllerScope:
             tagList = _controller.EIP_client.get_tag_list(_config['name']) # Need to cache tag list for get_tag_info()
         else:
             tagList = _controller.EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
         for tag in _config['tags']:
             # Format tag path based on controller or program tag type
-            if not _controller: 
+            if not _controllerScope: 
                 tag = "Program:" + _config['name'] + "." + tag
             else:
                 tag = tag
@@ -201,25 +205,6 @@ def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
     except Exception as e:
         myLogger("Device tags of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def createPLCAndConnectEIPClient(_ipAddress:str) -> typing.Tuple[PLC,LogixDriver]:
-    """
-    Creates a new PyLogix PLC and opens an EIP connection at the specified IP address        
-        :param _ipAddress: = IP address of Logix PLC
-        :return plc: = PyLogix PLC
-        :return EIP_client: = LogixDriver
-    """
-    try:
-        plc = PLC()
-        plc.IPAddress = _ipAddress
-        EIP_client = LogixDriver(plc.IPAddress)
-        EIP_client.open()
-        print("Opening EIP client for: " + EIP_client.info['name'] + " at: " + plc.IPAddress)
-        STANDARD_PLC_LIST.append(plc)
-        STANDARD_EIP_CLIENT_LIST.append(EIP_client)
-        return plc, EIP_client
-    except Exception as e:
-        myLogger("Failed to open EIP client at: " + plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
-
 def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _configTagType:str):
     """
     Provides standard nodes to the ctrlX datalayer as described in config.json       
@@ -234,18 +219,12 @@ def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
     else:
         myLogger("Unknown tag type in config.json. Must be 'standard tags' or 'priority tags'", logging.ERROR, source=__name__)
         return
-
     # Loop through each controller defined in config.json
     for controllerConfig in configData[_configTagType]['controllers']:
-        #  Check for existing controller at configured IP address
-        controllerFound = False      
-        for existingController in CONTROLLER_LIST:
-            if existingController.ip == controllerConfig['ip']:
-                controller = existingController
-                controllerFound = True
-                break
+        # Check for existing controller at IP address
+        controller = checkForExistingController(controllerConfig['ip'])
         # If a controller does not exist at the configured IP, create a new one
-        if not controllerFound:
+        if controller == None:
             controller = Controller(controllerConfig['ip'], controllerConfig['name'])          
         # If tag list exists at controller level, provide specified tags
         if "tags" in controllerConfig:
@@ -262,6 +241,19 @@ def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
             else:
                 provideAllScopeTags(_ctrlxDatalayerProvider,controller, programConfig, False, priorityTags)
 
+def checkForExistingController(_ipAddress:str) -> typing.Optional[Controller]:
+    """
+    Checks for existing controller at IP address and returns it if found
+        :param _ipAddress: = IP address of controller
+        :return controller: = Existing controller object matching IP address
+    """ 
+    #  Check for existing controller at configured IP address     
+    for existingController in CONTROLLER_LIST:
+        if existingController.ip == _ipAddress:
+            controller = existingController
+            return controller
+    return None
+
 def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     """
     Provides all device nodes to the datalayer discovered via EIP network scan  
@@ -274,8 +266,6 @@ def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         for device in devices.Value: 
             message = 'Found Device: ' + device.IPAddress + '  Product Code: ' + device.ProductName + " " + str(device.ProductCode) + '  Vendor/Device ID:' + device.Vendor + " " + str(device.DeviceID) + '  Revision/Serial:' + device.Revision + " " + device.SerialNumber
             myLogger(message, logging.INFO, source=__name__)
-            # Create PLC object and EIP client for each discovered device
-            # createPLCAndConnectEIPClient(device.IPAddress)
             # Provide all device tags for each discovered device
             provideAllDeviceTags(_ctrlxDatalayerProvider, device)
 
@@ -297,7 +287,6 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
             provideNodesAutoscan(_ctrlxDatalayerProvider)
     except Exception as e:
          myLogger("Local execution failure: " + repr(e), logging.ERROR, source=__name__)
-
 
 def runABProvider(_ctrlxDatalayerProvider):
     """
@@ -356,12 +345,14 @@ def main():
             # Get the time the files was modified
             fileTime =  os.stat(configPath).st_mtime
 
-            # If nodes exist in node list, plc objects and EIP clients exist, keep running
+            # If active controllers exist, keep running
             if CONTROLLER_LIST is not None:       
                 myLogger('INFO Running endless loop...', logging.INFO, source=__name__)
                 while ctrlxDatalayerProvider.is_connected():
                     if (fileTime == os.stat(configPath).st_mtime):
-                        time.sleep(1.0)  # Seconds
+                        for controller in CONTROLLER_LIST:
+                            if controller.PRIORITY_TAGS != None:
+                                controller.plc.Read(controller.PRIORITY_TAGS, datatype=controller.PRIORITY_TAG_TYPES)
                     else:
                         fileTime == os.stat(configPath).st_mtime
                         myLogger('ERROR Data Layer Provider is disconnected', logging.ERROR, source=__name__)
