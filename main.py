@@ -34,10 +34,10 @@ import logging.handlers
 import typing
 from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
-from app.ab_util import myLogger, addData
-from app.sorter import tagSorter
+from app.ab_util import myLogger, addData, writeSortedTagsToCSV
+#from app.sorter import writeSortedTagsToCSV
 
-def loadConfig() -> typing.Tuple[str,str,object]:
+def loadConfig() -> typing.Tuple[str,str,str,object]:
     """
     Loads config file and sets logging path depending on environment
         :param void:
@@ -50,9 +50,11 @@ def loadConfig() -> typing.Tuple[str,str,object]:
     if snap_path is None:
         configPath = "./DEV/config.json"
         logPath = "./DEV/info.log"
+        tagPath = "./DEV/tagList.csv"
     else:
         configPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/config.json"
         logPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/info.log"
+        tagPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/tagList.csv"
 
     # Configure the logger for easier analysis
     logging.basicConfig(filename = logPath, filemode = 'w', format='%(asctime)s:%(msecs)d, %(name)s, %(levelname)s, %(message)s', datefmt= '%H:%M:%S', level=logging.DEBUG) 
@@ -74,10 +76,10 @@ def loadConfig() -> typing.Tuple[str,str,object]:
             myLogger("Config data: " + str(configData), logging.INFO)
     except Exception as e:
         myLogger("Failed to read config.json. Exception: "  + repr(e), logging.ERROR, source=__name__)
-    return configPath,logPath,configData
+    return configPath,logPath,tagPath,configData
 
 # Load global configuration data
-configPath,logPath,configData = loadConfig()
+configPath,logPath,tagListPath,configData = loadConfig()
 
 # Define global variables
 AB_NODE_LIST = []
@@ -95,7 +97,7 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
     try:
         for tag in _tags:
             # Sort sub-tags to determine paths and add all tags to provider node list
-            sortedTags = tagSorter(tag)    
+            sortedTags = writeSortedTagsToCSV(tag, tagListPath)    
             for sortedTag in sortedTags:
                 AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, _plc, _EIP_client))
     except Exception as e:

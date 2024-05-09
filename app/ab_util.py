@@ -1,5 +1,99 @@
 import logging
+import typing
+import pprint
+from pathlib import Path
 from app.ab_provider_node import ABnode
+
+def tagSorter(dataLayerPath, controllerPath, tag):    
+    tagList = []
+    if 'dimensions' in tag:
+        tag_type = tag['tag_type']
+        index = 0
+        if tag["dimensions"][0] != 0:
+            for x in range(tag["dimensions"][0]):
+                if tag_type == 'atomic':
+                    dataType = tag['data_type']
+                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']', dataType)
+                    tagList.append(abTagTuple)
+                elif tag_type == 'struct' and tag['data_type_name'] != 'STRING':
+                    for attribute in tag['data_type']['attributes']:
+                        tagTupleList = tagSorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute])
+                        for tagTuple in tagTupleList:
+                            tagList.append(tagTuple)
+                elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+                    dataType = 'STRING'
+                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']', dataType)
+                    tagList.append(abTagTuple)  
+                index = index + 1           
+        else:
+            if tag_type == 'atomic':
+                    dataType = tag['data_type']
+                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    tagList.append(abTagTuple)
+            elif tag_type == 'struct' and tag['data_type_name'] != 'STRING' :
+                for attribute in tag['data_type']['attributes']:
+                    tagTupleList = tagSorter(dataLayerPath + "/" + attribute, controllerPath + "." + attribute, tag['data_type']['internal_tags'][attribute])
+                    for tagTuple in tagTupleList:
+                        tagList.append(tagTuple)
+            elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+                    dataType = 'STRING'
+                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    tagList.append(abTagTuple)            
+                    
+    elif 'array' in tag: 
+        tag_type = tag['tag_type']               
+        index = 1
+        if tag["array"] != 0:
+            for x in range(tag["array"]):
+                if tag_type == 'atomic':
+                    dataType = tag['data_type']
+                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']' , dataType)
+                    tagList.append(abTagTuple)
+                elif tag_type == 'struct' and tag['data_type_name'] != 'STRING':
+                    for attribute in tag['data_type']['attributes']:
+                        tagTupleList = tagSorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute])
+                        for tagTuple in tagTupleList:
+                            tagList.append(tagTuple)
+                elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+                    dataType = 'STRING'
+                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']', dataType)
+                    tagList.append(abTagTuple)         
+                index = index + 1        
+        else:
+            if tag_type == 'atomic':
+                    dataType = tag['data_type']
+                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    tagList.append(abTagTuple)
+            elif tag_type == 'struct'and tag['data_type_name'] != 'STRING':
+                for attribute in tag['data_type']['attributes']:
+                    tagTupleList = tagSorter(dataLayerPath + "/" + attribute,  controllerPath + '.' + attribute, tag['data_type']['internal_tags'][attribute])
+                    for tagTuple in tagTupleList:
+                        tagList.append(tagTuple)
+            elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+                    dataType = 'STRING'
+                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    tagList.append(abTagTuple)                     
+    if 'bit' in tag:
+        tag_type = tag['tag_type']               
+        if tag_type == 'atomic':
+                dataType = tag['data_type']
+                abTagTuple = (dataLayerPath, controllerPath, dataType)
+                tagList.append(abTagTuple)
+    return tagList
+
+def writeSortedTagsToCSV(_tag:object, _tagListPath:str) -> typing.List:
+    """
+    Wrapper for Sorter function which writes out tag list to csv
+        :param _tag: = Tag object from EIP_client get_tag_info()
+        :param _tagListPath: = File path to tag list csv
+        :return _EIP_client: = LogixDriver
+    """
+    abList = tagSorter(_tag['tag_name'], _tag['tag_name'], _tag)  
+    File_object = open(Path(_tagListPath), "w+") 
+    fileString = pprint.pformat(abList)
+    File_object.write(fileString)
+    File_object.close()
+    return abList
 
 
 def myLogger(message, level, source=None):
@@ -16,90 +110,7 @@ def myLogger(message, level, source=None):
     elif (level == logging.WARNING):
         logger.warning(message)
     elif (level == logging.ERROR):
-        logger.error(message)
-
-#struct sorter takes as an argument a structured variable and returns a list of variables with the entire path
-def structSorter(structItems):
-    abList = []
-    #this outer for loop searches all of the variables in the original strucutre
-    for key in structItems.keys():
-        if 'array' in structItems[key]:
-            #if the item is atomic (meaning it is a base type) and not an array it is added to the list
-            if structItems[key]['tag_type'] == "atomic" and structItems[key]['array'] == 0:
-                datalayerPath = key 
-                abPath = key 
-                dataType = structItems[key]['data_type']
-                abTagTuple = (datalayerPath, abPath, dataType)
-                abList.append(abTagTuple)    
-            elif structItems[key]['tag_type'] == 'atomic' and structItems[key]['array'] != 0:
-                #if the item is atomic (meaning it is a base type) and an array it is added to the list as an array
-                dataType = structItems[key]['data_type']
-                for x in range(structItems[key]['array']):                    
-                    datalayerPath = key + "/" + str(x)
-                    tagName = key + "[" + str(x) + "]"
-                    abTagTuple = (datalayerPath, tagName, dataType)
-                    abList.append(abTagTuple)
-            elif structItems[key]['tag_type'] != 'atomic' and structItems[key]['data_type']['name'] == 'STRING':
-                #check to to see if the tag is a string
-                datalayerPath = key
-                datatype = 'STRING' #structItems[key]['data_type_name'] 
-                abTagTuple = (datalayerPath, key, datatype)
-                abList.append(abTagTuple)                           
-            elif structItems[key]['tag_type'] == "struct":
-                #if the item is not atomic (meaning it is a structured type) then it needs to be passed to the same function recursively
-                name = structItems[key]['data_type']['name'] #capture the base name of the strucute to add to the datalayer path
-                sortedStruct = structSorter(structItems[key]["data_type"]["internal_tags"])
-                for i in sortedStruct:
-                    #updatedPath = (name + "/" + i[0], key + "." + i[1], i[2]) 
-                    updatedPath = (key + "/" + i[0], key + "." + i[1], i[2]) 
-                    abList.append(updatedPath) #add each object that is returned to the list that the function returns  
-        #elif structItems[key]['tag_type'] != 'atomic' and  structItems[key]['data_type_name'] == 'STRING':
-        elif structItems[key]['tag_type'] != 'atomic' and structItems[key]['data_type']['name'] == 'STRING':
-            #check to to see if the tag is a string
-            datalayerPath = key
-            datatype = 'string' #structItems[key]['data_type_name'] 
-            abTagTuple = (datalayerPath, key, datatype)
-            abList.append(abTagTuple)                   
-        elif structItems[key]['tag_type'] == "atomic":
-            #if the item is atomic (meaning it is a base type) and not an array it is added to the list  
-            datalayerPath = key
-            dataType = structItems[key]['data_type']
-            abTagTuple = (datalayerPath, key, dataType)
-            abList.append(abTagTuple)
-    return abList #return the list that includes the path on the AB controller and the datalayer and datatype 
-
-def tagSorter(tag):
-    abList = []
-    if tag['tag_type'] == 'atomic' and tag['dim'] == 0:
-        #get the base tag and add it to the master list of tags
-        datalayerPath = tag["tag_name"]
-        key = tag["tag_name"]
-        datatype = tag['data_type']
-        abTagTuple = (datalayerPath, key, datatype)
-        abList.append(abTagTuple)
-    elif tag['tag_type'] == 'atomic' and tag['dim'] != 0:
-        #get the base tag and an array add each one to the master list of tags
-        for x in range(tag["dimensions"][0]):
-            datalayerPath = tag["tag_name"] + "/" + str(x)
-            key =  tag['tag_name'] + "[" + str(x) + "]"
-            datatype = tag['data_type']
-            abTagTuple = (datalayerPath, key, datatype)  
-            abList.append(abTagTuple)
-    elif tag['tag_type'] != 'atomic' and tag['data_type_name'] == 'STRING':
-        #check to to see if the tag is a string
-        datalayerPath = tag["tag_name"]
-        key = tag['tag_name']
-        datatype = tag['data_type_name']
-        abTagTuple = (datalayerPath, key, datatype)
-        abList.append(abTagTuple)        
-    elif tag['tag_type'] != 'atomic':
-        #if the tag is a struct, pass it to the struct sorter
-        tagName = tag['tag_name']
-        newList = structSorter(tag["data_type"]["internal_tags"])
-        for i in newList:
-            updatedPath = (tagName + "/" + i[0], tagName + "." + i[1], i[2]) 
-            abList.append(updatedPath)
-    return abList      
+        logger.error(message)   
 
 def addData(_tag, _ctrlxDatalayerProvider, _plc, _EIP_client):
     corePath = _tag[0]
