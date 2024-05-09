@@ -8,30 +8,32 @@ This work is an extension of the [pylogix  project](https://pypi.org/project/pyl
 
 After installation connect an AB controller to the local network of the core. Restart the core. Verify the data is available on the datalayer of the core. This data is also available on the OPC-UA server of the core if equipped. 
 
-A config.json file is located in the app data of the controller under the AllenBradley folder. This config file can be used to exclusively configure the app to get data from a specific controller, program and set of tags. 
+A config.json file is located in the app data of the controller under the AllenBradley folder. This config file can be used to configure the app to provide data from specific controllers, programs and tag lists. 
 
 ```json
 {
-  "scan": "true", //true by default, set false to select controllers
-  "controllers": [
+  "LOG LEVEL": "DEBUG", // Set diagnostic log output level
+  "ctrlX provider": { // Settings related to the ctrlX datalayer provider
+    "local": false, // True if deployed on a local target. IP and port are unnecessary in this case
+    "ip":"192.168.1.100", // IP address of target ctrlX device
+    "port":"443" // Port of target ctrlX device
+  },    
+  "scan": false, // True if EIP network scanning is enabled. All tags are imported in this case
+  "controllers": [ // Array of controllers to establish connection to
     {
-      "ip": "192.168.1.90", //IP of first control
-      "programs": [
+      "name": "Machine1", // Controller name. Unused in logic and purely for user
+      "ip": "192.168.1.50", // IP address of controller
+      "tags": [ // Controller level tag import list. Remove this key to import all controller scoped tags
+        "iTest",
+        "bTest"
+      ],
+      "programs": [ // Array of controller programs to import tags from
         {
-          "MainProgram": { //name of program wtih tages
-            "tags": [ //name of tags in program
-              "Accel",  
-              "VariableManager"
-            ]
-          }
+          "name": "MainProgram", // Program name in PLC
+          "tags": ["arData100"] // Program level tag import list. Remove this key to import all program scoped tags
         },
         {
-          "controller": { //controller level tags
-            "tags": [ //tags at the controller level
-              "iCounter",
-              "arErrData"
-            ]
-          }
+          "name": "SecondProgram"
         }
       ]
     }
