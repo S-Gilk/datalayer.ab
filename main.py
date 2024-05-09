@@ -352,7 +352,13 @@ def main():
                     if (fileTime == os.stat(configPath).st_mtime):
                         for controller in CONTROLLER_LIST:
                             if controller.PRIORITY_TAGS != None:
-                                controller.plc.Read(controller.PRIORITY_TAGS, datatype=controller.PRIORITY_TAG_TYPES)
+                                try:
+                                    # Read using Pycomm3
+                                    controller.EIP_client.read(*controller.PRIORITY_TAGS)
+                                    # Read using Pylogix (This was throwing an exception)
+                                    #controller.plc.Read(controller.PRIORITY_TAGS)
+                                except Exception as e:
+                                    myLogger("Bulk read failed: " + repr(e), logging.ERROR, source=__name__)
                     else:
                         fileTime == os.stat(configPath).st_mtime
                         myLogger('ERROR Data Layer Provider is disconnected', logging.ERROR, source=__name__)
