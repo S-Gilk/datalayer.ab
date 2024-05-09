@@ -111,14 +111,22 @@ def myLogger(message, level, source=None):
     elif (level == logging.ERROR):
         logger.error(message)   
 
-def addData(_tag, _ctrlxDatalayerProvider, _plc, _EIP_client):
+def addData(_tag, _ctrlxDatalayerProvider, _controller):
     corePath = _tag[0]
     myLogger('adding tag: ' + _tag[0], logging.INFO, source=__name__)
     if corePath.find("Program:") != -1:
         corePath = corePath.replace("Program:", "")
         pathSplit = corePath.split(".")
-        ABNode = ABnode(_ctrlxDatalayerProvider, _tag[1], _plc, _tag[2], _EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _plc.IPAddress + "/" + pathSplit[0] + "/" + pathSplit[1])
+        ABNode = ABnode(_ctrlxDatalayerProvider,
+                        _tag[1],
+                        _controller.plc,
+                        _tag[2],
+                        _controller.EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _controller.ip + "/" + pathSplit[0] + "/" + pathSplit[1])
     else:
-        ABNode = ABnode(_ctrlxDatalayerProvider, _tag[1], _plc, _tag[2], _EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _plc.IPAddress + "/" + "ControllerTags" + "/" + _tag[0])    
+        ABNode = ABnode(_ctrlxDatalayerProvider,
+                        _tag[1],
+                        _controller.plc,
+                        _tag[2],
+                        _controller.EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _controller.ip + "/" + "ControllerTags" + "/" + _tag[0])    
     ABNode.register_node()
     return ABNode
