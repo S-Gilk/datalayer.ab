@@ -1,27 +1,44 @@
 {
+  "LOG LEVEL": "DEBUG",
   "ctrlX provider": {
     "local": false,
-    "ip":"192.168.1.101",
+    "ip":"192.168.1.100",
     "port":"443"
   },    
   "scan": false,
-  "controllers": [
-    {
-      "name": "Machine1",
-      "ip": "192.168.1.50",
-      "tags": [
-        "iTest",
-        "bTest"
-      ],
-      "programs": [
-        {
-          "name": "MainProgram",
-          "tags": ["arData100"]
-        },
-        {
-          "name": "SecondProgram"
-        }
-      ]
-    }
-  ]
+  "standard tags":{
+    "controllers": [
+      {
+        "name": "Machine1",
+        "ip": "192.168.1.50",
+        "tags": [
+          "iTest",
+          "bTest"
+        ],
+        "programs": [
+          {
+            "name": "SecondProgram"
+          }
+        ]
+      }
+    ]
+  },
+  "priority tags":{
+    "controllers": [
+      {
+        "name": "Machine1",
+        "ip": "192.168.1.50",
+        "tags": [
+          "iTest",
+          "bTest"
+        ],
+        "programs": [
+          {
+            "name": "MainProgram",
+            "tags": ["arData100"]
+          }
+        ]
+      }
+    ]
+  }
 }

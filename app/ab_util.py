@@ -95,7 +95,6 @@ def writeSortedTagsToCSV(_tag:object, _tagListPath:str) -> typing.List:
     File_object.close()
     return abList
 
-
 def myLogger(message, level, source=None):
     if (level > logging.INFO): 
         print(message, flush=True)

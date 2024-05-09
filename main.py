@@ -35,7 +35,6 @@ import typing
 from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
 from app.ab_util import myLogger, addData, writeSortedTagsToCSV
-#from app.sorter import writeSortedTagsToCSV
 
 def loadConfig() -> typing.Tuple[str,str,str,object]:
     """
@@ -83,6 +82,7 @@ configPath,logPath,tagListPath,configData = loadConfig()
 
 # Define global variables
 AB_NODE_LIST = []
+AB_BULK_READ_NODE_LIST = []
 PLC_LIST = []
 EIP_CLIENT_LIST = []
 
@@ -103,7 +103,7 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
     except Exception as e:
         myLogger("Failed to sort and provide tags for device: " + _plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller: bool):
+def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller: bool, _priorityTags: bool):
     """
     Provides all program tags to the ctrlX datalayer provider
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
@@ -122,7 +122,7 @@ def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider
     except Exception as e:
         myLogger("Scope tags for: " + _scope['name'] + "of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller:bool):
+def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller:bool, _priorityTags: bool):
     """
     Provides specified program tags to the ctrlX datalayer provider
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
@@ -184,13 +184,46 @@ def createPLCAndConnectEIPClient(_ipAddress:str) -> typing.Tuple[PLC,LogixDriver
     except Exception as e:
         myLogger("Failed to open EIP client at: " + plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
+def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _configTagType:str):
     """
-    Provides nodes to the ctrlX datalayer as described in config.json       
+    Provides standard nodes to the ctrlX datalayer as described in config.json       
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+    """
+    # Check configured tag type
+    if _configTagType == 'standard tags':
+        priorityTags = False
+    elif _configTagType == 'priority tags':
+        priorityTags = True
+    else:
+        myLogger("Unknown tag type in config.json. Must be 'standard tags' or 'priority tags'", logging.ERROR, source=__name__)
+        return
+
+    # Loop through each controller defined in config.json
+    for controller in configData[_configTagType]['controllers']:              
+        # Establish EIP client connection to each controller
+        plc, EIP_client = createPLCAndConnectEIPClient(controller['ip']) 
+        # If tag list exists at controller level, provide specified tags
+        if "tags" in controller:
+            provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True, priorityTags)
+        # If no tag list exists at controller level, provide all controller scoped tags
+        else:
+            provideAllScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True, priorityTags)
+        # Loop through each program in the controller programs array
+        for program in controller['programs']:
+            # If a tag list exists in the program, provide specified tags
+            if "tags" in program:
+                provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, program, False, priorityTags)                         
+            # If no tag list exists in the program, provide all program scoped tags
+            else:
+                provideAllScopeTags(_ctrlxDatalayerProvider, plc, EIP_client, program, False, priorityTags)
+
+def providePriorityNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
+    """
+    Provides priority nodes to the ctrlX datalayer as described in config.json       
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
     """ 
     # Loop through each controller defined in config.json
-    for controller in configData['controllers']:              
+    for controller in configData['priority tags']['controllers']:              
         # Establish EIP client connection to each controller
         plc, EIP_client = createPLCAndConnectEIPClient(controller['ip']) 
         # If tag list exists at controller level, provide specified tags
@@ -225,6 +258,19 @@ def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
             # Provide all device tags for each discovered device
             provideAllDeviceTags(_ctrlxDatalayerProvider, device)
 
+def providePriorityTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
+    for controller in configData['priority tags']['controllers']:
+        plcExists = False
+        # Check if a PLC object already exists at the controller IP
+        for plc in PLC_LIST:
+            if plc.IPAddress == controller.IPAddress:
+                plcExists = True
+                break
+        # If no PLC object exists, create a new one and connect an EIP client
+        if not plcExists:
+            createPLCAndConnectEIPClient(controller['ip'])
+    providePriorityNodesByConfig(_ctrlxDatalayerProvider)
+
 def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     """
     Handles program execution outside of the snap context            
@@ -235,12 +281,14 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
         # -------------------------- OPTION 1: NO AUTOSCAN ------------------------------
         if configData['scan'] != True:
             provideNodesByConfig(_ctrlxDatalayerProvider)
+            providePriorityTags(_ctrlxDatalayerProvider)
         # ---------------------------- OPTION 2: AUTOSCAN -------------------------------
         else:
             provideNodesAutoscan(_ctrlxDatalayerProvider)
     except Exception as e:
          myLogger("Local execution failure: " + repr(e), logging.ERROR, source=__name__)
-        
+
+
 def runABProvider(_ctrlxDatalayerProvider):
     """
     Executes logic to provide configured or scanned tags to the configured ctrlX OS datalayer broker        
@@ -255,6 +303,7 @@ def runABProvider(_ctrlxDatalayerProvider):
 # ----------------------------- NETWORK SCANNING IS DISABLED -----------------------------------------------------------            
         if configData['scan'] != True:
             provideNodesByConfig(_ctrlxDatalayerProvider)
+            providePriorityTags(_ctrlxDatalayerProvider)
 # ----------------------------- NETWORK SCANNING IS ENABLED ------------------------------------------------------------           
         else:
             provideNodesAutoscan(_ctrlxDatalayerProvider)                             

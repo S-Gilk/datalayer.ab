@@ -63,7 +63,6 @@ Therefor the connection string to the ctrlX Datalayer is:
 
 """
 
-
 def get_connection_string(
         ip="192.168.1.1",
         user="boschrexroth",
