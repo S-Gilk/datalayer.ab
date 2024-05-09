@@ -1,9 +1,9 @@
 {
   "LOG LEVEL": "DEBUG",
   "ctrlX provider": {
-    "local": false,
-    "ip":"192.168.1.100",
-    "port":"443"
+    "local": true,
+    "ip":"",
+    "port":""
   },    
   "scan": false,
   "standard tags":{
@@ -11,10 +11,7 @@
       {
         "name": "Machine1",
         "ip": "192.168.1.50",
-        "tags": [
-          "iTest",
-          "bTest"
-        ],
+        "tags": ["iTest","bTest"],
         "programs": [
           {
             "name": "SecondProgram"
@@ -28,10 +25,7 @@
       {
         "name": "Machine1",
         "ip": "192.168.1.50",
-        "tags": [
-          "iTest",
-          "bTest"
-        ],
+        "tags" : [],
         "programs": [
           {
             "name": "MainProgram",
