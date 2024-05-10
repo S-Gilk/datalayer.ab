@@ -1,5 +1,5 @@
 {
-  "LOG LEVEL": "DEBUG",
+  "LOG LEVEL": "INFO",
   "ctrlX provider": {
     "local": true,
     "ip":"",

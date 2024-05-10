@@ -34,7 +34,7 @@ import logging.handlers
 import typing
 from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
-from app.ab_util import myLogger, addData, writeSortedTagsToCSV
+from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV
 
 class Controller():
     plc:PLC
@@ -51,8 +51,9 @@ class Controller():
         self.EIP_client = LogixDriver(self.ip)
         self.STANDARD_NODES = []
         self.PRIORITY_NODES = []
-        self.PRIORITY_TAGS = []
+        self.PRIORITY_TAG_NAMES = []
         self.PRIORITY_TAG_TYPES = []
+        self.PRIORITY_TAG_LIST = []
         CONTROLLER_LIST.append(self)
         self.connect()
 
@@ -63,6 +64,9 @@ class Controller():
         for node in self.PRIORITY_NODES:
             node.unregister_node()
         CONTROLLER_LIST.remove(self)
+    
+    def getPLC(self):
+        return self.plc
     
     def connect(self):
         self.EIP_client.open()
@@ -116,7 +120,7 @@ def loadConfig() -> typing.Tuple[str,str,str,object]:
 configPath,logPath,tagListPath,configData = loadConfig()
 
 # Define global variables
-CONTROLLER_LIST = []
+CONTROLLER_LIST: typing.List[Controller] = []
 
 def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller, _tags:list, _priorityTags:bool):
     """
@@ -128,16 +132,20 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
     """
     try:
         for tag in _tags:
+            # if(_priorityTags):               
+            #     _controller.PRIORITY_TAGS.append(tag)
             # Sort sub-tags to determine paths and add all tags to provider node list
             sortedTags = writeSortedTagsToCSV(tag, tagListPath)  
             # Add tags to respective node lists
+            index = 0
             for sortedTag in sortedTags:
                 if not _priorityTags:
                     _controller.STANDARD_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
                 if _priorityTags:
-                     _controller.PRIORITY_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
-                     _controller.PRIORITY_TAGS.append(sortedTag[1])
-                     _controller.PRIORITY_TAG_TYPES.append(sortedTag[2])
+                    _controller.PRIORITY_NODES.append(addDataBulk(sortedTag, _ctrlxDatalayerProvider, _controller, _controller.PRIORITY_TAG_LIST,index))
+                    _controller.PRIORITY_TAG_NAMES.append(sortedTag[1])
+                    _controller.PRIORITY_TAG_TYPES.append(sortedTag[2])
+                    index += 1
     except Exception as e:
         myLogger("Failed to sort and provide tags for device: " + _controller.ip + ". Exception: " + repr(e), logging.ERROR, source=__name__)
 
@@ -196,8 +204,7 @@ def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
     """
     Provides all device tags to ctrlx datalayer provider and adds PLC and EIP client to global list          
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-        :param _plc: = PyLogix PLC
-        :param _EIP_client: = LogixDriver
+        :param _controller: = Controller object containing PLC and EIP client
     """
     try:
         tags = _controller.EIP_client.get_tag_list('*')
@@ -311,7 +318,7 @@ def runABProvider(_ctrlxDatalayerProvider):
 # ----------------------------- -----LOCAL EXECUTION -------------------------------------------------------------------
     else:
         localExecution(_ctrlxDatalayerProvider)
-                  
+
 def main():
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
@@ -339,8 +346,18 @@ def main():
                 myLogger("ERROR Starting Data Layer Provider failed with:" + str(result), logging.ERROR, source=__name__)
                 return
             
-            # START THE APPLICATION           
+            # START THE APPLICATION         
             runABProvider(ctrlxDatalayerProvider)
+
+            # Create new PLCs... _TODO WHY IS THIS NECESSARY?
+            comms =[]
+            i = 0
+            for controller in CONTROLLER_LIST:
+                comms.append(PLC(controller.ip))
+                tagData = CONTROLLER_LIST[i].PRIORITY_TAG_NAMES
+                tempTagList = comms[i].Read(tagData)
+                for tag in tempTagList:
+                    CONTROLLER_LIST[i].PRIORITY_TAG_LIST.append(tag)
 
             # Get the time the files was modified
             fileTime =  os.stat(configPath).st_mtime
@@ -350,21 +367,29 @@ def main():
                 myLogger('INFO Running endless loop...', logging.INFO, source=__name__)
                 while ctrlxDatalayerProvider.is_connected():
                     if (fileTime == os.stat(configPath).st_mtime):
-                        for controller in CONTROLLER_LIST:
-                            if controller.PRIORITY_TAGS != None:
+                        # Bulkread logic
+                        for i in range(len(CONTROLLER_LIST)):
+                            if CONTROLLER_LIST[i].PRIORITY_TAG_NAMES != None:
                                 try:
                                     # Read using Pycomm3
-                                    controller.EIP_client.read(*controller.PRIORITY_TAGS)
-                                    # Read using Pylogix (This was throwing an exception)
-                                    #controller.plc.Read(controller.PRIORITY_TAGS)
+                                    #controller.EIP_client.read(*controller.PRIORITY_TAGS)
+                                    # Read using Pylogix
+                                    tempTagList = comms[i].Read(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES)
+                                    # Copy temp tags to tag list_TODO WHY IS THIS NECESSARY?
+                                    tagIndex = 0
+                                    for tag in tempTagList:
+                                        CONTROLLER_LIST[i].PRIORITY_TAG_LIST[tagIndex] = tag
+                                        tagIndex += 1
                                 except Exception as e:
-                                    myLogger("Bulk read failed: " + repr(e), logging.ERROR, source=__name__)
+                                    myLogger("Bulk read failed: " + repr(e), logging.ERROR, source=__name__)                      
                     else:
                         fileTime == os.stat(configPath).st_mtime
                         myLogger('ERROR Data Layer Provider is disconnected', logging.ERROR, source=__name__)
                         # CLEANUP
                         for controller in CONTROLLER_LIST:
                             del controller
+                        for comm in comms:
+                            del comm
                         runABProvider(ctrlxDatalayerProvider)
             else: 
                 myLogger("Improperly configured application, see application log.", logging.ERROR, source=__name__)            
