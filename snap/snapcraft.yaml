@@ -1,6 +1,6 @@
 name: ab-connector
-version: ctrlX-v1.20+3.0.1
-summary: Data Layer provider for Allen-Bradley tags
+version: ctrlX-v1.20+3.1.1
+summary: Datalayer provider for Allen-Bradley tags
 title: ab-connector
 description: |
   This app will find and add configured data from Allen-Bradley Controllers on the local network to the ctrlX datalayer.

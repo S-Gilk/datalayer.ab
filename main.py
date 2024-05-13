@@ -34,8 +34,46 @@ import logging.handlers
 import typing
 from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
-from app.ab_util import myLogger, addData, writeSortedTagsToCSV
-#from app.sorter import writeSortedTagsToCSV
+from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV
+
+class Controller():
+    plc:PLC
+    EIP_client:LogixDriver
+    ip:str
+    name:str
+    STANDARD_NODES:list
+    PRIORITY_NODES:list
+
+    def __init__(self, _ipAddress, _name):
+        self.ip = _ipAddress
+        self.name = _name
+        self.plc = PLC(self.ip)
+        self.EIP_client = LogixDriver(self.ip)
+        self.STANDARD_NODES = []
+        self.PRIORITY_NODES = []
+        self.PRIORITY_TAG_NAMES = []
+        self.PRIORITY_TAG_TYPES = []
+        self.PRIORITY_TAG_LIST = []
+        CONTROLLER_LIST.append(self)
+        self.connect()
+
+    def __del__(self):
+        self.disconnect()
+        for node in self.STANDARD_NODES:
+            node.unregister_node()
+        for node in self.PRIORITY_NODES:
+            node.unregister_node()
+        CONTROLLER_LIST.remove(self)
+    
+    def getPLC(self):
+        return self.plc
+    
+    def connect(self):
+        self.EIP_client.open()
+    
+    def disconnect(self):
+        self.EIP_client.close()
+        self.plc.Close()    
 
 def loadConfig() -> typing.Tuple[str,str,str,object]:
     """
@@ -82,131 +120,146 @@ def loadConfig() -> typing.Tuple[str,str,str,object]:
 configPath,logPath,tagListPath,configData = loadConfig()
 
 # Define global variables
-AB_NODE_LIST = []
-PLC_LIST = []
-EIP_CLIENT_LIST = []
+CONTROLLER_LIST: typing.List[Controller] = []
 
-def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _tags:list):
+def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller, _tags:list, _priorityTags:bool):
     """
     Sorts and provides given tags as nodes to ctrlX datalayer provider
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-        :param _plc: = PyLogix PLC
-        :param _EIP_client: = LogixDriver
+        :param _controller: = Controller object containing PLC and EIP client
         :param _tags: = list of tags to sort and provide
+        :param _priorityTags: = boolean flag to indicate tags should be added to bulk read node list (TRUE = include in bulk read node list)
     """
     try:
         for tag in _tags:
+            # if(_priorityTags):               
+            #     _controller.PRIORITY_TAGS.append(tag)
             # Sort sub-tags to determine paths and add all tags to provider node list
-            sortedTags = writeSortedTagsToCSV(tag, tagListPath)    
+            sortedTags = writeSortedTagsToCSV(tag, tagListPath)  
+            # Add tags to respective node lists
+            index = 0
             for sortedTag in sortedTags:
-                AB_NODE_LIST.append(addData(sortedTag, _ctrlxDatalayerProvider, _plc, _EIP_client))
+                if not _priorityTags:
+                    _controller.STANDARD_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
+                if _priorityTags:
+                    _controller.PRIORITY_NODES.append(addDataBulk(sortedTag, _ctrlxDatalayerProvider, _controller, _controller.PRIORITY_TAG_LIST,index))
+                    _controller.PRIORITY_TAG_NAMES.append(sortedTag[1])
+                    _controller.PRIORITY_TAG_TYPES.append(sortedTag[2])
+                    index += 1
     except Exception as e:
-        myLogger("Failed to sort and provide tags for device: " + _plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
+        myLogger("Failed to sort and provide tags for device: " + _controller.ip + ". Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller: bool):
+def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller, _config:object, _controllerScope: bool, _priorityTags: bool):
     """
     Provides all program tags to the ctrlX datalayer provider
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-        :param _plc: = PyLogix PLC
-        :param _EIP_client: = LogixDriver
-        :param _scope: = PLC program or controller object from config.json
-        :param _controller: = Boolean flag to indicate controller scope (TRUE = controller scope)
+        :param _controller: = Controller object containing PLC and EIP client
+        :param _config: = PLC program or controller config object from config.json
+        :param _controllerScope: = Boolean flag to indicate controller scope (TRUE = controller scope)
+        :param _priorityTags: = boolean flag to indicate tags should be added to bulk read node list (TRUE = include in bulk read node list)
     """
     try:
-        if(_controller):
-            tags = _EIP_client.get_tag_list()
+        if _controllerScope:
+            tags = _controller.EIP_client.get_tag_list()
         else:            
-            tags = _EIP_client.get_tag_list(_scope['name'])
+            tags = _controller.EIP_client.get_tag_list(_config['name'])
         # Tag list here is all top level tags of the program
-        sortAndProvideTags(_ctrlxDatalayerProvider, _plc, _EIP_client, tags)
+        sortAndProvideTags(_ctrlxDatalayerProvider, _controller, tags, _priorityTags)
     except Exception as e:
-        myLogger("Scope tags for: " + _scope['name'] + "of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
+        myLogger("Scope tags for: " + _config['name'] + "of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver, _scope:object, _controller:bool):
+def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller, _config:object, _controllerScope:bool, _priorityTags: bool):
     """
     Provides specified program tags to the ctrlX datalayer provider
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-        :param _plc: = PyLogix PLC
-        :param _EIP_client: = LogixDriver
-        :param _scope: = PLC program or controller object from config.json
-        :param _controller: = Boolean flag to indicate controller scope (TRUE = controller scope)
+        :param _controller: = Controller object containing PLC and EIP client
+        :param _config: = PLC program or controller config object from config.json
+        :param _controllerScope: = Boolean flag to indicate controller scope (TRUE = controller scope)
+        :param _priorityTags: = boolean flag to indicate tags should be added to bulk read node list (TRUE = include in bulk read node list)
     """
     try:
         # Loop through each tag in the config.json program tags array
         locatedTags = []
-        for tag in _scope['tags']:
+        if not _controllerScope:
+            tagList = _controller.EIP_client.get_tag_list(_config['name']) # Need to cache tag list for get_tag_info()
+        else:
+            tagList = _controller.EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
+        for tag in _config['tags']:
             # Format tag path based on controller or program tag type
-            if not _controller: 
-                tag = "Program:" + _scope['name'] + "." + tag
-                tagList = _EIP_client.get_tag_list(_scope['name']) # Need to cache tag list for get_tag_info()
+            if not _controllerScope: 
+                tag = "Program:" + _config['name'] + "." + tag
             else:
                 tag = tag
-                tagList = _EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
             # Get specified tag info from the EIP client
-            locatedTag = _EIP_client.get_tag_info(tag)
+            locatedTag = _controller.EIP_client.get_tag_info(tag)
             # Add tag info to located tags array
             locatedTags.append(locatedTag)
         # Sort and provide all located tags
-        sortAndProvideTags(_ctrlxDatalayerProvider, _plc, _EIP_client,locatedTags)
+        sortAndProvideTags(_ctrlxDatalayerProvider, _controller,locatedTags,_priorityTags)
             
     except Exception as e:
-        myLogger("Specified program tags for: " + _scope['name'] + " of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
+        myLogger("Specified program tags for: " + _config['name'] + " of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _plc:PLC, _EIP_client:LogixDriver):
+def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller):
     """
     Provides all device tags to ctrlx datalayer provider and adds PLC and EIP client to global list          
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-        :param _plc: = PyLogix PLC
-        :param _EIP_client: = LogixDriver
+        :param _controller: = Controller object containing PLC and EIP client
     """
     try:
-        tags = _EIP_client.get_tag_list('*')
-        sortAndProvideTags(_ctrlxDatalayerProvider,_plc,_EIP_client,tags)
+        tags = _controller.EIP_client.get_tag_list('*')
+        sortAndProvideTags(_ctrlxDatalayerProvider,_controller,tags, False) # When a full device tag set is provided, tags will not be priority
     except Exception as e:
-        myLogger("Device tags of device: " + _plc.IPAddress + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
+        myLogger("Device tags of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
-def createPLCAndConnectEIPClient(_ipAddress:str) -> typing.Tuple[PLC,LogixDriver]:
+def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _configTagType:str):
     """
-    Creates a new PyLogix PLC and opens an EIP connection at the specified IP address        
-        :param _ipAddress: = IP address of Logix PLC
-        :return plc: = PyLogix PLC
-        :return EIP_client: = LogixDriver
-    """
-    try:
-        plc = PLC()
-        plc.IPAddress = _ipAddress
-        EIP_client = LogixDriver(plc.IPAddress)
-        EIP_client.open()
-        print("Opening EIP client for: " + EIP_client.info['name'] + " at: " + plc.IPAddress)
-        PLC_LIST.append(plc)
-        EIP_CLIENT_LIST.append(EIP_client)
-        return plc, EIP_client
-    except Exception as e:
-        myLogger("Failed to open EIP client at: " + plc.IPAddress + ". Exception: " + repr(e), logging.ERROR, source=__name__)
-
-def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
-    """
-    Provides nodes to the ctrlX datalayer as described in config.json       
+    Provides standard nodes to the ctrlX datalayer as described in config.json       
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-    """ 
+        :param _configTagType: = tag type configured in config.json (standard tags, priority tags)
+    """
+    # Check configured tag type
+    if _configTagType == 'standard tags':
+        priorityTags = False
+    elif _configTagType == 'priority tags':
+        priorityTags = True
+    else:
+        myLogger("Unknown tag type in config.json. Must be 'standard tags' or 'priority tags'", logging.ERROR, source=__name__)
+        return
     # Loop through each controller defined in config.json
-    for controller in configData['controllers']:              
-        # Establish EIP client connection to each controller
-        plc, EIP_client = createPLCAndConnectEIPClient(controller['ip']) 
+    for controllerConfig in configData[_configTagType]['controllers']:
+        # Check for existing controller at IP address
+        controller = checkForExistingController(controllerConfig['ip'])
+        # If a controller does not exist at the configured IP, create a new one
+        if controller == None:
+            controller = Controller(controllerConfig['ip'], controllerConfig['name'])          
         # If tag list exists at controller level, provide specified tags
-        if "tags" in controller:
-            provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
+        if "tags" in controllerConfig:
+            provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,controller, controllerConfig, True, priorityTags)
         # If no tag list exists at controller level, provide all controller scoped tags
         else:
-            provideAllScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, controller, True)
+            provideAllScopeTags(_ctrlxDatalayerProvider ,controller, controllerConfig, True, priorityTags)
         # Loop through each program in the controller programs array
-        for program in controller['programs']:
+        for programConfig in controllerConfig['programs']:
             # If a tag list exists in the program, provide specified tags
-            if "tags" in program:
-                provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,plc, EIP_client, program, False)                         
+            if "tags" in programConfig:
+                provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,controller, programConfig, False, priorityTags)                         
             # If no tag list exists in the program, provide all program scoped tags
             else:
-                provideAllScopeTags(_ctrlxDatalayerProvider, plc, EIP_client, program, False)
+                provideAllScopeTags(_ctrlxDatalayerProvider,controller, programConfig, False, priorityTags)
+
+def checkForExistingController(_ipAddress:str) -> typing.Optional[Controller]:
+    """
+    Checks for existing controller at IP address and returns it if found
+        :param _ipAddress: = IP address of controller
+        :return controller: = Existing controller object matching IP address
+    """ 
+    #  Check for existing controller at configured IP address     
+    for existingController in CONTROLLER_LIST:
+        if existingController.ip == _ipAddress:
+            controller = existingController
+            return controller
+    return None
 
 def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     """
@@ -220,8 +273,6 @@ def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         for device in devices.Value: 
             message = 'Found Device: ' + device.IPAddress + '  Product Code: ' + device.ProductName + " " + str(device.ProductCode) + '  Vendor/Device ID:' + device.Vendor + " " + str(device.DeviceID) + '  Revision/Serial:' + device.Revision + " " + device.SerialNumber
             myLogger(message, logging.INFO, source=__name__)
-            # Create PLC object and EIP client for each discovered device
-            createPLCAndConnectEIPClient(device.IPAddress)
             # Provide all device tags for each discovered device
             provideAllDeviceTags(_ctrlxDatalayerProvider, device)
 
@@ -234,13 +285,16 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     try:
         # -------------------------- OPTION 1: NO AUTOSCAN ------------------------------
         if configData['scan'] != True:
-            provideNodesByConfig(_ctrlxDatalayerProvider)
+            if "standard tags" in configData:
+                provideNodesByConfig(_ctrlxDatalayerProvider, 'standard tags')
+            if "priority tags" in configData:
+                provideNodesByConfig(_ctrlxDatalayerProvider, 'priority tags')
         # ---------------------------- OPTION 2: AUTOSCAN -------------------------------
         else:
             provideNodesAutoscan(_ctrlxDatalayerProvider)
     except Exception as e:
          myLogger("Local execution failure: " + repr(e), logging.ERROR, source=__name__)
-        
+
 def runABProvider(_ctrlxDatalayerProvider):
     """
     Executes logic to provide configured or scanned tags to the configured ctrlX OS datalayer broker        
@@ -254,14 +308,17 @@ def runABProvider(_ctrlxDatalayerProvider):
         # This means the app is deployed on a target
 # ----------------------------- NETWORK SCANNING IS DISABLED -----------------------------------------------------------            
         if configData['scan'] != True:
-            provideNodesByConfig(_ctrlxDatalayerProvider)
+            if "standard tags" in configData:
+                provideNodesByConfig(_ctrlxDatalayerProvider, 'standard tags')
+            if "priority tags" in configData:
+                provideNodesByConfig(_ctrlxDatalayerProvider, 'priority tags')
 # ----------------------------- NETWORK SCANNING IS ENABLED ------------------------------------------------------------           
         else:
             provideNodesAutoscan(_ctrlxDatalayerProvider)                             
 # ----------------------------- -----LOCAL EXECUTION -------------------------------------------------------------------
     else:
         localExecution(_ctrlxDatalayerProvider)
-                  
+
 def main():
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
@@ -289,31 +346,50 @@ def main():
                 myLogger("ERROR Starting Data Layer Provider failed with:" + str(result), logging.ERROR, source=__name__)
                 return
             
-            # START THE APPLICATION           
+            # START THE APPLICATION         
             runABProvider(ctrlxDatalayerProvider)
+
+            # Create new PLCs... _TODO WHY IS THIS NECESSARY?
+            comms =[]
+            i = 0
+            for controller in CONTROLLER_LIST:
+                comms.append(PLC(controller.ip))
+                tagData = CONTROLLER_LIST[i].PRIORITY_TAG_NAMES
+                tempTagList = comms[i].Read(tagData)
+                for tag in tempTagList:
+                    CONTROLLER_LIST[i].PRIORITY_TAG_LIST.append(tag)
 
             # Get the time the files was modified
             fileTime =  os.stat(configPath).st_mtime
 
-            # If nodes exist in node list, plc objects and EIP clients exist, keep running
-            if AB_NODE_LIST is not None and PLC_LIST is not None and EIP_CLIENT_LIST is not None:       
+            # If active controllers exist, keep running
+            if CONTROLLER_LIST is not None:       
                 myLogger('INFO Running endless loop...', logging.INFO, source=__name__)
                 while ctrlxDatalayerProvider.is_connected():
                     if (fileTime == os.stat(configPath).st_mtime):
-                        time.sleep(1.0)  # Seconds
+                        # Bulkread logic
+                        for i in range(len(CONTROLLER_LIST)):
+                            if CONTROLLER_LIST[i].PRIORITY_TAG_NAMES != None:
+                                try:
+                                    # Read using Pycomm3
+                                    #controller.EIP_client.read(*controller.PRIORITY_TAGS)
+                                    # Read using Pylogix
+                                    tempTagList = comms[i].Read(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES)
+                                    # Copy temp tags to tag list_TODO WHY IS THIS NECESSARY?
+                                    tagIndex = 0
+                                    for tag in tempTagList:
+                                        CONTROLLER_LIST[i].PRIORITY_TAG_LIST[tagIndex] = tag
+                                        tagIndex += 1
+                                except Exception as e:
+                                    myLogger("Bulk read failed: " + repr(e), logging.ERROR, source=__name__)                      
                     else:
                         fileTime == os.stat(configPath).st_mtime
                         myLogger('ERROR Data Layer Provider is disconnected', logging.ERROR, source=__name__)
                         # CLEANUP
-                        for node in AB_NODE_LIST:
-                            node.unregister_node()
-                            del node
-                        for client in EIP_CLIENT_LIST:
-                            client.close()
-                            del client
-                        for plc in PLC_LIST:
-                            plc.Close()
-                            del plc
+                        for controller in CONTROLLER_LIST:
+                            del controller
+                        for comm in comms:
+                            del comm
                         runABProvider(ctrlxDatalayerProvider)
             else: 
                 myLogger("Improperly configured application, see application log.", logging.ERROR, source=__name__)            

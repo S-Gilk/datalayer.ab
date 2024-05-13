@@ -197,8 +197,197 @@ class ABnode:
         except Exception as e:
             print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
 
-    def updateVariantValue(self) -> Result:
-        return self.readVariantValue(self.abTagValues[self.listIndex])
+class ABnodeBulk:
+
+    def __init__(self, provider : Provider, abTagName : str, controller : PLC, type : str, path : str, tagListData: list, index : int):
+        
+        self.cbs = ProviderNodeCallbacks(
+            self.__on_create,
+            self.__on_remove,
+            self.__on_browse,
+            self.__on_read,
+            self.__on_write,
+            self.__on_metadata
+        )
+
+        self.providerNode = ProviderNode(self.cbs)
+        self.provider = provider
+        self.data = Variant()
+        self.address = "Allen-Bradley/" + path 
+        self.abTagName = abTagName
+        self.controller = controller
+        self.dataType = self.getVariantType(type)
+        self.type = type 
+        self.index = index   
+        self.tagList = tagListData  
+
+        self.metadata = MetadataBuilder.create_metadata(
+            self.abTagName, self.abTagName, "", "", NodeClass.NodeClass.Variable, 
+            read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=True,
+            type_path = "")
+        
+        #copies the data from the list to the active data when initialized
+        #self.updateVariantValue()
+        #
+        #print("metadata:",self.metadata)
+
+    def register_node(self):
+      self.provider.register_node(self.address, self.providerNode)      
+    
+    def unregister_node(self):
+        self.provider.unregister_node(self.address)
+    
+    def set_value(self,value: Variant):
+        self.data = value
+
+    def __on_create(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
+        #print("__on_create()", "address:", address, "userdata:", userdata)
+        cb(Result.OK, data)
+
+    def __on_remove(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
+        #print("__on_remove()", "address:", address, "userdata:", userdata)
+        cb(Result.UNSUPPORTED, None)
+
+    def __on_browse(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
+        #print("__on_browse()", "address:", address, "userdata:", userdata)
+        new_data = Variant()
+        new_data.set_array_string([])
+        cb(Result.OK, new_data)
+
+    def __on_read(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
+        new_data = self.data
+        #ret = self.tagList[0]
+        try:
+            #ret = self.controller.Read(self.abTagName)
+            ret = self.tagList[self.index].Value
+            
+            #print(ret)
+            self.readVariantValue(ret)
+            new_data = self.data
+            cb(Result.OK, new_data)
+        except:
+            #myLogger("Failed to read tag " + self.abTagName, logging.WARNING, source=__name__)
+            cb(Result.FAILED, new_data)    
+        
+
+    def __on_write(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
+        _data = data
+        try:
+            self.writeVariantValue(data)
+            cb(Result.OK, self.data)
+        except:
+            #myLogger("Failed to write tag " + self.abTagName, logging.WARNING, source=__name__)
+            cb(Result.FAILED, self.data)
+
+    def __on_metadata(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
+        #print("__on_metadata()", "address:", address,"metadata:",self.metadata, "userdata:", userdata)
+        cb(Result.OK, self.metadata)
+
+    def readVariantValue(self, data : object) -> Result:
+        try:
+            if self.type == "BOOL":
+                return self.data.set_bool8(data)
+            elif self.type == "SINT":
+                return self.data.set_int8(data)
+            elif self.type == "INT":
+                return self.data.set_int16(data)    
+            elif self.type == "DINT":
+                return self.data.set_int32(data)    
+            elif self.type == "LINT":
+                return self.data.set_int64(data)    
+            elif self.type == "USINT":
+                return self.data.set_uint8(data)    
+            elif self.type == "UINT":
+                return self.data.set_uint16(data)    
+            elif self.type == "UDINT":
+                return self.data.set_uint32(data)    
+            elif self.type == "LWORD":
+                return self.data.set_uint64(data)    
+            elif self.type == "REAL":
+                return self.data.set_float32(data)    
+            elif self.type == "LREAL":
+                return self.data.set_float64(data)    
+            elif self.type == "DWORD":
+                return self.data.set_uint32(data)
+            elif self.type == "STRING":
+                return self.data.set_string(data)
+            else:
+                return self.data
+        except Exception as e:
+            print("Failed to read tag: " + self.abTagName + " with exception: " + e)
+            #print(e)
+            #myLogger("Failed to read tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
+
+    def writeVariantValue(self, data : Variant):
+        try:
+            if self.type == "BOOL":
+                self.controller.Write(self.abTagName, data.get_bool8())
+            elif self.type == "SINT":
+                self.controller.Write(self.abTagName, data.get_int8())
+            elif self.type == "INT":
+                self.controller.Write(self.abTagName, data.get_int16())
+            elif self.type == "DINT":
+                self.controller.Write(self.abTagName, data.get_int32())
+            elif self.type == "LINT":
+                self.controller.Write(self.abTagName, data.get_int64())
+            elif self.type == "USINT":
+                self.controller.Write(self.abTagName, data.get_uint8())
+            elif self.type == "UINT":
+                self.controller.Write(self.abTagName, data.get_uint16())
+            elif self.type == "UDINT":
+                self.controller.Write(self.abTagName, data.get_uint32())
+            elif self.type == "LWORD":
+                self.controller.Write(self.abTagName, data.get_uint64())
+            elif self.type == "REAL":
+                self.controller.Write(self.abTagName, data.get_float32())
+            elif self.type == "LREAL":
+                self.controller.Write(self.abTagName, data.get_float64())
+            elif self.type == "DWORD":
+                self.controller.Write(self.abTagName, data.get_uint32())
+            elif self.type == "STRING":
+                self.controller.Write(self.abTagName, data.get_string())
+            else:
+                print("Failed to write tag: " + self.abTagName)        
+        except Exception as e:
+            print("Failed to write tag: " + self.abTagName + " with exception: " + e)
+            #print(e)
+            #myLogger("Failed to write tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
+
+    def getVariantType(self, type : str):
+        try:
+            if type == "BOOL":
+                return "bool8"
+            elif type == "SINT":
+                return "int8"
+            elif type == "INT":
+                return "int16"
+            elif type == "DINT":
+                return "int32"    
+            elif type == "LINT":
+                return "int64"    
+            elif type == "USINT":
+                return "uint8"
+            elif type == "UINT":
+                return "uint16"    
+            elif type == "UDINT":
+                return "uint32"
+            elif type == "LWORD":
+                return "uint64"
+            elif type == "REAL":
+                return "float32"
+            elif type == "LREAL":
+                return "float64"
+            elif type == "DWORD":
+                return "uint32"
+            elif type == "STRING":
+                return "string"
+            else:
+                return "UNKNON"
+        except Exception as e:
+            print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
+            #print(e)
+            #myLogger("Failed to get type for tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
+
 
 class ABnode_Array:
 
@@ -357,6 +546,3 @@ class ABnode_Array:
                 return "string"
         except Exception as e:
             print(e) 
-
-    def updateVariantValue(self) -> Result:
-        return self.readVariantValue(self.abTagValues[self.listIndex])

@@ -12,32 +12,42 @@ A config.json file is located in the app data of the controller under the AllenB
 
 ```json
 {
-  "LOG LEVEL": "DEBUG", // Set diagnostic log output level
+  "LOG LEVEL": "DEBUG", // Set diagnostic log output level 
   "ctrlX provider": { // Settings related to the ctrlX datalayer provider
     "local": false, // True if deployed on a local target. IP and port are unnecessary in this case
-    "ip":"192.168.1.100", // IP address of target ctrlX device
-    "port":"443" // Port of target ctrlX device
+    "ip":"192.168.1.101", // IP address of target ctrlX datalayer
+    "port":"443" // Port of target ctrlX datalayer
   },    
   "scan": false, // True if EIP network scanning is enabled. All tags are imported in this case
-  "controllers": [ // Array of controllers to establish connection to
-    {
-      "name": "Machine1", // Controller name. Unused in logic and purely for user
-      "ip": "192.168.1.50", // IP address of controller
-      "tags": [ // Controller level tag import list. Remove this key to import all controller scoped tags
-        "iTest",
-        "bTest"
-      ],
-      "programs": [ // Array of controller programs to import tags from
-        {
-          "name": "MainProgram", // Program name in PLC
-          "tags": ["arData100"] // Program level tag import list. Remove this key to import all program scoped tags
-        },
-        {
-          "name": "SecondProgram"
-        }
-      ]
-    }
-  ]
+  "standard tags":{ // Standard tag behavior object. These tags are read/written by individual request
+    "controllers": [ // Array of controllers for standard tag behavior
+      {
+        "name": "Machine1", // Controller name
+        "ip": "192.168.1.50", // Controller IP address
+        "tags": ["iTest","bTest"], // Controller scope tag imports. If array is empty, none are provided. Delete key entirely to import all.
+        "programs": [ // Array of controller programs to import tags from
+          {
+            "name": "SecondProgram" // Program name in PLC. As an example, the "tags" key is excluded indicating a full program tag import.
+          }
+        ]
+      }
+    ]
+  },
+  "priority tags":{ // Priority tag behavior object. These tags are read in a bulk fashion on a cyclic basis
+    "controllers": [ // Array of controllers for priority tag behavior
+      {
+        "name": "Machine1", // Controller name
+        "ip": "192.168.1.50", // Controller IP address
+        "tags" : [], // Controller scope tag imports. If array is empty, none are provided. Delete key entirely to import all.
+        "programs": [ // Array of controller programs to import tags from
+          {
+            "name": "MainProgram", // Program name in PLC
+            "tags": ["arData100"] // Tag list to import for bulk reading
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
  
