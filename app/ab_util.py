@@ -1,6 +1,7 @@
 import logging
 import typing
 import pprint
+import csv
 from pathlib import Path
 from app.ab_provider_node import ABnode,ABnodeBulk
 
@@ -88,10 +89,16 @@ def writeSortedTagsToCSV(_tag:object, _tagListPath:str) -> typing.List:
         :param _tagListPath: = File path to tag list csv
         :return _EIP_client: = LogixDriver
     """
-    abList = tagSorter(_tag['tag_name'], _tag['tag_name'], _tag)  
-    File_object = open(Path(_tagListPath), "w+") 
-    fileString = pprint.pformat(abList)
-    File_object.write(fileString)
+    abList = tagSorter(_tag['tag_name'], _tag['tag_name'], _tag)
+
+    if(Path.exists(Path(_tagListPath))):
+        File_object = open(Path(_tagListPath), "a", newline='')
+    else:
+        File_object = open(Path(_tagListPath), "w+", newline='')
+
+    writer = csv.writer(File_object)
+    for line in abList:
+        writer.writerow(line)
     File_object.close()
     return abList
 

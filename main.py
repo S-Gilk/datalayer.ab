@@ -30,8 +30,9 @@ import ctrlxdatalayer
 from ctrlxdatalayer.variant import Result
 from pylogix import PLC
 import logging
-import logging.handlers
+from logging.handlers import RotatingFileHandler
 import typing
+from pathlib import Path
 from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
 from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV
@@ -93,15 +94,26 @@ def loadConfig() -> typing.Tuple[str,str,str,object]:
         configPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/config.json"
         logPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/info.log"
         tagPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/tagList.csv"
-
-    # Configure the logger for easier analysis
-    logging.basicConfig(filename = logPath, filemode = 'w', format='%(asctime)s:%(msecs)d, %(name)s, %(levelname)s, %(message)s', datefmt= '%H:%M:%S', level=logging.DEBUG) 
     
+    # Configure the logger for easier analysis
+    logFormatter = logging.Formatter(fmt='%(asctime)s:%(msecs)d, %(name)s, %(levelname)s, %(message)s', datefmt='%H:%M:%S')
+    logHandler = RotatingFileHandler(logPath, mode='a', maxBytes=5*1024*1024, 
+                                 backupCount=2, encoding=None, delay=0)
+    logHandler.setFormatter(logFormatter) 
+    logHandler.setLevel(logging.DEBUG)
+    logging.getLogger().addHandler(logHandler)
+
     myLogger("cltrX File Path: " + str(snap_path), logging.INFO, source=__name__) 
 
     # Get the time the files was modified
     fileTime = os.stat(configPath).st_mtime
     myLogger("Config modified at UNIX TIME " + str(fileTime), logging.INFO)
+
+    # Delete any existing tag list
+    try: 
+        os.remove(Path(tagPath))
+    except Exception as e:
+        myLogger("Failed to remove file at: " + tagPath, logging.DEBUG)
 
     # Read config.json
     try:
@@ -363,13 +375,13 @@ def main():
             fileTime =  os.stat(configPath).st_mtime
 
             # If active controllers exist, keep running
-            if CONTROLLER_LIST is not None:       
+            if len(CONTROLLER_LIST) > 0:       
                 myLogger('INFO Running endless loop...', logging.INFO, source=__name__)
                 while ctrlxDatalayerProvider.is_connected():
                     if (fileTime == os.stat(configPath).st_mtime):
                         # Bulkread logic
                         for i in range(len(CONTROLLER_LIST)):
-                            if CONTROLLER_LIST[i].PRIORITY_TAG_NAMES != None:
+                            if len(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES) > 0:
                                 try:
                                     # Read using Pycomm3
                                     #controller.EIP_client.read(*controller.PRIORITY_TAGS)
