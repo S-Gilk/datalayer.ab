@@ -37,6 +37,7 @@ from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
 from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV
 
+
 class Controller():
     plc:PLC
     EIP_client:LogixDriver
@@ -44,6 +45,7 @@ class Controller():
     name:str
     STANDARD_NODES:list
     PRIORITY_NODES:list
+    global CONTROLLER_LIST
 
     def __init__(self, _ipAddress, _name):
         self.ip = _ipAddress
@@ -53,7 +55,6 @@ class Controller():
         self.STANDARD_NODES = []
         self.PRIORITY_NODES = []
         self.PRIORITY_TAG_NAMES = []
-        self.PRIORITY_TAG_TYPES = []
         self.PRIORITY_TAG_LIST = []
         CONTROLLER_LIST.append(self)
         self.connect()
@@ -64,7 +65,6 @@ class Controller():
             node.unregister_node()
         for node in self.PRIORITY_NODES:
             node.unregister_node()
-        CONTROLLER_LIST.remove(self)
     
     def getPLC(self):
         return self.plc
@@ -76,7 +76,16 @@ class Controller():
         self.EIP_client.close()
         self.plc.Close()    
 
-def loadConfig() -> typing.Tuple[str,str,str,object]:
+# Define global variables
+configPath:str =""
+logPath:str =""
+tagListPath:str = ""
+configData:object = None
+fileTime:float = None
+
+CONTROLLER_LIST: typing.List[Controller] = []
+
+def loadConfig():
     """
     Loads config file and sets logging path depending on environment
         :param void:
@@ -84,24 +93,31 @@ def loadConfig() -> typing.Tuple[str,str,str,object]:
         :return logPath: = path to log file
         :return configData: = parsed JSON of config file
     """
+    global configPath
+    global logPath
+    global tagListPath
+    global configData
+
     snap_path = os.getenv('SNAP')
     print(snap_path)
     if snap_path is None:
         configPath = "./DEV/config.json"
         logPath = "./DEV/info.log"
-        tagPath = "./DEV/tagList.csv"
+        tagListPath = "./DEV/tagList.csv"
     else:
         configPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/config.json"
         logPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/info.log"
-        tagPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/tagList.csv"
+        tagListPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/tagList.csv"
     
     # Configure the logger for easier analysis
+    logger = logging.getLogger()
+    logger.handlers.clear()
     logFormatter = logging.Formatter(fmt='%(asctime)s:%(msecs)d, %(name)s, %(levelname)s, %(message)s', datefmt='%H:%M:%S')
     logHandler = RotatingFileHandler(logPath, mode='a', maxBytes=5*1024*1024, 
                                  backupCount=2, encoding=None, delay=0)
     logHandler.setFormatter(logFormatter) 
     logHandler.setLevel(logging.DEBUG)
-    logging.getLogger().addHandler(logHandler)
+    logger.addHandler(logHandler)
 
     myLogger("cltrX File Path: " + str(snap_path), logging.INFO, source=__name__) 
 
@@ -111,9 +127,9 @@ def loadConfig() -> typing.Tuple[str,str,str,object]:
 
     # Delete any existing tag list
     try: 
-        os.remove(Path(tagPath))
+        os.remove(Path(tagListPath))
     except Exception as e:
-        myLogger("Failed to remove file at: " + tagPath, logging.DEBUG)
+        myLogger("Failed to remove file at: " + tagListPath, logging.DEBUG)
 
     # Read config.json
     try:
@@ -126,13 +142,6 @@ def loadConfig() -> typing.Tuple[str,str,str,object]:
             myLogger("Config data: " + str(configData), logging.INFO)
     except Exception as e:
         myLogger("Failed to read config.json. Exception: "  + repr(e), logging.ERROR, source=__name__)
-    return configPath,logPath,tagPath,configData
-
-# Load global configuration data
-configPath,logPath,tagListPath,configData = loadConfig()
-
-# Define global variables
-CONTROLLER_LIST: typing.List[Controller] = []
 
 def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller, _tags:list, _priorityTags:bool):
     """
@@ -143,20 +152,17 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
         :param _priorityTags: = boolean flag to indicate tags should be added to bulk read node list (TRUE = include in bulk read node list)
     """
     try:
+        index = 0
         for tag in _tags:
-            # if(_priorityTags):               
-            #     _controller.PRIORITY_TAGS.append(tag)
             # Sort sub-tags to determine paths and add all tags to provider node list
             sortedTags = writeSortedTagsToCSV(tag, tagListPath)  
             # Add tags to respective node lists
-            index = 0
             for sortedTag in sortedTags:
                 if not _priorityTags:
                     _controller.STANDARD_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
                 if _priorityTags:
                     _controller.PRIORITY_NODES.append(addDataBulk(sortedTag, _ctrlxDatalayerProvider, _controller, _controller.PRIORITY_TAG_LIST,index))
                     _controller.PRIORITY_TAG_NAMES.append(sortedTag[1])
-                    _controller.PRIORITY_TAG_TYPES.append(sortedTag[2])
                     index += 1
     except Exception as e:
         myLogger("Failed to sort and provide tags for device: " + _controller.ip + ". Exception: " + repr(e), logging.ERROR, source=__name__)
@@ -267,6 +273,7 @@ def checkForExistingController(_ipAddress:str) -> typing.Optional[Controller]:
         :return controller: = Existing controller object matching IP address
     """ 
     #  Check for existing controller at configured IP address     
+    global CONTROLLER_LIST
     for existingController in CONTROLLER_LIST:
         if existingController.ip == _ipAddress:
             controller = existingController
@@ -341,17 +348,21 @@ def main():
         datalayer_system.start(False)
 
         # CREATE DATALAYER PROVIDER
-        if(configData["ctrlX provider"]["local"] != True):
-            ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system, 
-                                                                    configData['ctrlX provider']['ip'], 
-                                                                    ssl_port=configData['ctrlX provider']['port'])
-        else:
-            ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system)
-
+        try:
+            loadConfig()
+            if(configData["ctrlX provider"]["local"] != True):
+                ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system, 
+                                                                        configData['ctrlX provider']['ip'], 
+                                                                        ssl_port=configData['ctrlX provider']['port'])
+            else:
+                ctrlxDatalayerProvider, connection_string = get_provider(datalayer_system)
+        except Exception as e:
+            myLogger("Datalayer provider failed to connect: " + repr(e), logging.ERROR, source=__name__)  
+        
         if ctrlxDatalayerProvider is None:
             myLogger("Connecting to " + connection_string + " failed.", logging.ERROR, source=__name__)
             sys.exit(1)
-
+    
         with ctrlxDatalayerProvider:  # provider.close() is called automatically when leaving with... block
             result = ctrlxDatalayerProvider.start()
             if result != Result.OK:
@@ -361,33 +372,37 @@ def main():
             # START THE APPLICATION         
             runABProvider(ctrlxDatalayerProvider)
 
-            # Create new PLCs... _TODO WHY IS THIS NECESSARY?
+            # Get the time the files was modified
+            global fileTime
+            #fileTime =  os.stat(configPath).st_mtime
+            fileTime = os.path.getmtime(configPath)
             comms =[]
             i = 0
+            global CONTROLLER_LIST
             for controller in CONTROLLER_LIST:
                 comms.append(PLC(controller.ip))
-                tagData = CONTROLLER_LIST[i].PRIORITY_TAG_NAMES
-                tempTagList = comms[i].Read(tagData)
+                tempTagList = comms[i].Read(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES)
                 for tag in tempTagList:
                     CONTROLLER_LIST[i].PRIORITY_TAG_LIST.append(tag)
-
-            # Get the time the files was modified
-            fileTime =  os.stat(configPath).st_mtime
+                i+=1
 
             # If active controllers exist, keep running
             if len(CONTROLLER_LIST) > 0:       
                 myLogger('INFO Running endless loop...', logging.INFO, source=__name__)
                 while ctrlxDatalayerProvider.is_connected():
-                    if (fileTime == os.stat(configPath).st_mtime):
+                    t = os.path.getmtime(configPath)
+                    if (fileTime == os.path.getmtime(configPath)):
                         # Bulkread logic
                         for i in range(len(CONTROLLER_LIST)):
+                            if not CONTROLLER_LIST[i].EIP_client.connected:
+                                myLogger('ERROR controller is disconnected: ' + CONTROLLER_LIST[i].ip, logging.ERROR, source=__name__)
                             if len(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES) > 0:
                                 try:
                                     # Read using Pycomm3
                                     #controller.EIP_client.read(*controller.PRIORITY_TAGS)
                                     # Read using Pylogix
+                                    # tempTagList = CONTROLLER_LIST[i].plc.Read(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES)
                                     tempTagList = comms[i].Read(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES)
-                                    # Copy temp tags to tag list_TODO WHY IS THIS NECESSARY?
                                     tagIndex = 0
                                     for tag in tempTagList:
                                         CONTROLLER_LIST[i].PRIORITY_TAG_LIST[tagIndex] = tag
@@ -395,16 +410,29 @@ def main():
                                 except Exception as e:
                                     myLogger("Bulk read failed: " + repr(e), logging.ERROR, source=__name__)                      
                     else:
-                        fileTime == os.stat(configPath).st_mtime
-                        myLogger('ERROR Data Layer Provider is disconnected', logging.ERROR, source=__name__)
+                        myLogger('Configuration changed. Restarting application...', logging.INFO, source=__name__)
+                        print("Configuration changed. Restating application...")
                         # CLEANUP
-                        for controller in CONTROLLER_LIST:
+                        for i in range(len(CONTROLLER_LIST)):
+                            del CONTROLLER_LIST[i]
+
+                        for controller in comms:
                             del controller
-                        for comm in comms:
-                            del comm
+                            comms.clear()
+                        
+                        # Restart
+                        fileTime = os.path.getmtime(configPath)
+                        loadConfig()
                         runABProvider(ctrlxDatalayerProvider)
+                        i = 0
+                        for controller in CONTROLLER_LIST:
+                            comms.append(PLC(controller.ip))
+                            tempTagList = comms[i].Read(CONTROLLER_LIST[i].PRIORITY_TAG_NAMES)
+                            for tag in tempTagList:
+                                CONTROLLER_LIST[i].PRIORITY_TAG_LIST.append(tag)
+                            i+=1
             else: 
-                myLogger("Improperly configured application, see application log.", logging.ERROR, source=__name__)            
+                myLogger("No controllers configured or found. See application log.", logging.ERROR, source=__name__)            
 
             myLogger('Stopping Data Layer provider', logging.INFO, source=__name__)
             result = ctrlxDatalayerProvider.stop()

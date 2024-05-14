@@ -64,10 +64,10 @@ Therefor the connection string to the ctrlX Datalayer is:
 """
 
 def get_connection_string(
-        ip="192.168.1.1",
+        ip="10.0.2.2",
         user="boschrexroth",
         password="boschrexroth",
-        ssl_port=443):
+        ssl_port=8443):
     """
     Combines a ctrlX Datalayer connection string.
     @param[in] ip IP address of the ctrlX CORE. Use "10.0.2.2" to connect to a ctrlX CORE virtual with port forwarding.
@@ -90,10 +90,10 @@ def get_connection_string(
 
 
 def get_client(system: ctrlxdatalayer.system.System,
-               ip="192.168.1.2",
+               ip="10.0.2.2",
                user="boschrexroth",
                password="boschrexroth",
-               ssl_port=443):
+               ssl_port=8443):
     """
     Creates a ctrlX Datalayer client instance.
     @param[in] system A ctrlxdatalayer.system.System instance
@@ -117,7 +117,7 @@ def get_client(system: ctrlxdatalayer.system.System,
 
 
 def get_provider(system: ctrlxdatalayer.system.System,
-                 ip="10.0.02.2",
+                 ip="10.0.2.2",
                  user="boschrexroth",
                  password="boschrexroth",
                  ssl_port=8443):
