@@ -43,7 +43,7 @@ def tagSorter(dataLayerPath, controllerPath, tag):
                     
     elif 'array' in tag: 
         tag_type = tag['tag_type']               
-        index = 1
+        index = 0
         if tag["array"] != 0:
             for x in range(tag["array"]):
                 if tag_type == 'atomic':

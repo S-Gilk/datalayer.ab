@@ -24,6 +24,7 @@
 import ctrlxdatalayer
 from ctrlxdatalayer.provider import Provider
 from ctrlxdatalayer.provider_node import ProviderNode, ProviderNodeCallbacks, NodeCallback
+from app.provider_node_sub import SubscriptionNode, ProviderNodeCallbacks2
 from ctrlxdatalayer.variant import Result, Variant
 from pylogix import PLC
 from comm.datalayer import NodeClass
@@ -196,6 +197,41 @@ class ABnode:
                 return "UNKNON"
         except Exception as e:
             print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
+
+class ABnode2(ABnode):
+
+    def __init__(self, provider : Provider, abTagName : str, controller : PLC, type : str, path : str):
+        
+        self.cbs = ProviderNodeCallbacks2(
+            self.__on_create,
+            self.__on_remove,
+            self.__on_browse,
+            self.__on_read,
+            self.__on_write,
+            self.__on_metadata,
+            self.__on_subscribe,
+            self.__on_unsubscribe
+        )
+
+        self.providerNode = SubscriptionNode(self.cbs)
+        self.provider = provider
+        self.data = Variant()
+        self.address = "Allen-Bradley/" + path 
+        self.abTagName = abTagName
+        self.controller = controller
+        self.dataType = self.getVariantType(type)
+        self.type = type      
+
+        self.metadata = MetadataBuilder.create_metadata(
+            self.abTagName, self.abTagName, "", "", NodeClass.NodeClass.Variable, 
+            read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=True,
+            type_path = "")
+        
+    def __on_subscribe(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
+        print("Subscribed to node: " + self.address)
+
+    def __on_subscribe(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
+        print("Unsubscribed to node: " + self.address)
 
 class ABnodeBulk:
 
@@ -387,7 +423,6 @@ class ABnodeBulk:
             print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
             #print(e)
             #myLogger("Failed to get type for tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
-
 
 class ABnode_Array:
 

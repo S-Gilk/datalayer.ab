@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='AB-Connector',
-    version='3.1.1',
+    version='3.1.2',
     description='This app provides Allen-Bradley PLC tags as datalayer nodes',
     author='alex4acre, S-Gilk',
     setup_requires = ['wheel'],

@@ -184,7 +184,7 @@ def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider
         # Tag list here is all top level tags of the program
         sortAndProvideTags(_ctrlxDatalayerProvider, _controller, tags, _priorityTags)
     except Exception as e:
-        myLogger("Scope tags for: " + _config['name'] + "of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
+        myLogger("Scope tags for: " + _config['name'] + " of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
 def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller, _config:object, _controllerScope:bool, _priorityTags: bool):
     """
