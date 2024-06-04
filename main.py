@@ -208,10 +208,12 @@ def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Pr
                 tag = "Program:" + _config['name'] + "." + tag
             else:
                 tag = tag
+            # Check if tag is nested. Always need to retrieve info of top level tag
+           # base, sub_tag = tag.split(".")
             # Get specified tag info from the EIP client
             locatedTag = _controller.EIP_client.get_tag_info(tag)
             # Add tag info to located tags array
-            locatedTags.append(locatedTag)
+            locatedTags.append([locatedTag, tag])
         # Sort and provide all located tags
         sortAndProvideTags(_ctrlxDatalayerProvider, _controller,locatedTags,_priorityTags)
             
@@ -258,13 +260,14 @@ def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         else:
             provideAllScopeTags(_ctrlxDatalayerProvider ,controller, controllerConfig, True, priorityTags)
         # Loop through each program in the controller programs array
-        for programConfig in controllerConfig['programs']:
-            # If a tag list exists in the program, provide specified tags
-            if "tags" in programConfig:
-                provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,controller, programConfig, False, priorityTags)                         
-            # If no tag list exists in the program, provide all program scoped tags
-            else:
-                provideAllScopeTags(_ctrlxDatalayerProvider,controller, programConfig, False, priorityTags)
+        if 'programs' in controllerConfig:
+            for programConfig in controllerConfig['programs']:
+                # If a tag list exists in the program, provide specified tags
+                if "tags" in programConfig:
+                    provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,controller, programConfig, False, priorityTags)                         
+                # If no tag list exists in the program, provide all program scoped tags
+                else:
+                    provideAllScopeTags(_ctrlxDatalayerProvider,controller, programConfig, False, priorityTags)
 
 def checkForExistingController(_ipAddress:str) -> typing.Optional[Controller]:
     """

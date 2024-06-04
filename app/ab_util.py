@@ -5,91 +5,113 @@ import csv
 from pathlib import Path
 from app.ab_provider_node import ABnode,ABnodeBulk
 
-def tagSorter(dataLayerPath, controllerPath, tag):    
+def tagSorter(_dataLayerPath:str, _controllerPath:str,_tag:object) -> typing.List:
+    """
+    Sorts top level tag into sub tags.
+        :param _tag: = Top level tag object from EIP_client get_tag_info()
+        :param _datalayerPath: = Tag path in ctrlX datalayer
+        :param _controllerPath: = Tag path on AB controller
+        :return tagList: = Tuple list of tags including datalayer path, controller path and type
+    """   
     tagList = []
-    if 'dimensions' in tag:
-        tag_type = tag['tag_type']
+
+    # If an attribute path is provided, only add tags at specified path
+
+    if 'dimensions' in _tag:
+        tag_type = _tag['tag_type']
         index = 0
-        if tag["dimensions"][0] != 0:
-            for x in range(tag["dimensions"][0]):
+        if _tag["dimensions"][0] != 0:
+            for x in range(_tag["dimensions"][0]):
                 if tag_type == 'atomic':
-                    dataType = tag['data_type']
-                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']', dataType)
+                    dataType = _tag['data_type']
+                    abTagTuple = (_dataLayerPath + '/' + str(index), _controllerPath + '[' + str(index) + ']', dataType)
                     tagList.append(abTagTuple)
-                elif tag_type == 'struct' and tag['data_type_name'] != 'STRING':
-                    for attribute in tag['data_type']['attributes']:
-                        tagTupleList = tagSorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute])
+                elif tag_type == 'struct' and _tag['data_type_name'] != 'STRING':
+                    for attribute in _tag['data_type']['attributes']:
+                        tagTupleList = tagSorter(_dataLayerPath + "/" + str(index) + '/' + attribute, _controllerPath + "[" + str(index) + '].' + attribute, _tag['data_type']['internal_tags'][attribute])
                         for tagTuple in tagTupleList:
                             tagList.append(tagTuple)
-                elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+                elif tag_type == 'struct' and _tag['data_type_name'] == 'STRING':
                     dataType = 'STRING'
-                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']', dataType)
+                    abTagTuple = (_dataLayerPath + '/' + str(index), _controllerPath + '[' + str(index) + ']', dataType)
                     tagList.append(abTagTuple)  
                 index = index + 1           
         else:
             if tag_type == 'atomic':
-                    dataType = tag['data_type']
-                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    dataType = _tag['data_type']
+                    abTagTuple = (_dataLayerPath, _controllerPath, dataType)
                     tagList.append(abTagTuple)
-            elif tag_type == 'struct' and tag['data_type_name'] != 'STRING' :
-                for attribute in tag['data_type']['attributes']:
-                    tagTupleList = tagSorter(dataLayerPath + "/" + attribute, controllerPath + "." + attribute, tag['data_type']['internal_tags'][attribute])
+            elif tag_type == 'struct' and _tag['data_type_name'] != 'STRING' :
+                for attribute in _tag['data_type']['attributes']:
+                    tagTupleList = tagSorter(_dataLayerPath + "/" + attribute, _controllerPath + "." + attribute, _tag['data_type']['internal_tags'][attribute])
                     for tagTuple in tagTupleList:
                         tagList.append(tagTuple)
-            elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+            elif tag_type == 'struct' and _tag['data_type_name'] == 'STRING':
                     dataType = 'STRING'
-                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    abTagTuple = (_dataLayerPath, _controllerPath, dataType)
                     tagList.append(abTagTuple)            
                     
-    elif 'array' in tag: 
-        tag_type = tag['tag_type']               
+    elif 'array' in _tag: 
+        tag_type = _tag['tag_type']               
         index = 0
-        if tag["array"] != 0:
-            for x in range(tag["array"]):
+        if _tag["array"] != 0:
+            for x in range(_tag["array"]):
                 if tag_type == 'atomic':
-                    dataType = tag['data_type']
-                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']' , dataType)
+                    dataType = _tag['data_type']
+                    abTagTuple = (_dataLayerPath + '/' + str(index), _controllerPath + '[' + str(index) + ']' , dataType)
                     tagList.append(abTagTuple)
-                elif tag_type == 'struct' and tag['data_type_name'] != 'STRING':
-                    for attribute in tag['data_type']['attributes']:
-                        tagTupleList = tagSorter(dataLayerPath + "/" + str(index) + '/' + attribute, controllerPath + "[" + str(index) + '].' + attribute, tag['data_type']['internal_tags'][attribute])
+                elif tag_type == 'struct' and _tag['data_type_name'] != 'STRING':
+                    for attribute in _tag['data_type']['attributes']:
+                        tagTupleList = tagSorter(_dataLayerPath + "/" + str(index) + '/' + attribute, _controllerPath + "[" + str(index) + '].' + attribute, _tag['data_type']['internal_tags'][attribute])
                         for tagTuple in tagTupleList:
                             tagList.append(tagTuple)
-                elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+                elif tag_type == 'struct' and _tag['data_type_name'] == 'STRING':
                     dataType = 'STRING'
-                    abTagTuple = (dataLayerPath + '/' + str(index), controllerPath + '[' + str(index) + ']', dataType)
+                    abTagTuple = (_dataLayerPath + '/' + str(index), _controllerPath + '[' + str(index) + ']', dataType)
                     tagList.append(abTagTuple)         
                 index = index + 1        
         else:
             if tag_type == 'atomic':
-                    dataType = tag['data_type']
-                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    dataType = _tag['data_type']
+                    abTagTuple = (_dataLayerPath, _controllerPath, dataType)
                     tagList.append(abTagTuple)
-            elif tag_type == 'struct'and tag['data_type_name'] != 'STRING':
-                for attribute in tag['data_type']['attributes']:
-                    tagTupleList = tagSorter(dataLayerPath + "/" + attribute,  controllerPath + '.' + attribute, tag['data_type']['internal_tags'][attribute])
+            elif tag_type == 'struct'and _tag['data_type_name'] != 'STRING':
+                for attribute in _tag['data_type']['attributes']:
+                    tagTupleList = tagSorter(_dataLayerPath + "/" + attribute,  _controllerPath + '.' + attribute, _tag['data_type']['internal_tags'][attribute])
                     for tagTuple in tagTupleList:
                         tagList.append(tagTuple)
-            elif tag_type == 'struct' and tag['data_type_name'] == 'STRING':
+            elif tag_type == 'struct' and _tag['data_type_name'] == 'STRING':
                     dataType = 'STRING'
-                    abTagTuple = (dataLayerPath, controllerPath, dataType)
+                    abTagTuple = (_dataLayerPath, _controllerPath, dataType)
                     tagList.append(abTagTuple)                     
-    if 'bit' in tag:
-        tag_type = tag['tag_type']               
+    if 'bit' in _tag:
+        tag_type = _tag['tag_type']               
         if tag_type == 'atomic':
-                dataType = tag['data_type']
-                abTagTuple = (dataLayerPath, controllerPath, dataType)
+                dataType = _tag['data_type']
+                abTagTuple = (_dataLayerPath, _controllerPath, dataType)
                 tagList.append(abTagTuple)
     return tagList
 
-def writeSortedTagsToCSV(_tag:object, _tagListPath:str) -> typing.List:
+def writeSortedTagsToCSV(_tag:typing.Tuple[object,str], _tagListPath:str) -> typing.List:
     """
-    Wrapper for Sorter function which writes out tag list to csv
-        :param _tag: = Tag object from EIP_client get_tag_info()
+    Wrapper for tagSorter function which writes out tag list to csv
+        :param _tag: = Tuple containing top level tag object from EIP_client get_tag_info() and tag path in AB controller
         :param _tagListPath: = File path to tag list csv
         :return _EIP_client: = LogixDriver
     """
-    abList = tagSorter(_tag['tag_name'], _tag['tag_name'], _tag)
+    tagObject = _tag[0]
+
+    # If tag name exists, tag object is top level 
+    if 'tag_name' in tagObject:
+        abList = tagSorter(tagObject['tag_name'], tagObject['tag_name'], tagObject)
+    else:
+        # Need to change paths here to reflect attributes
+        datalayerPath = _tag[1].replace('.','/')
+        datalayerPath.replace('[', '/')
+        datalayerPath.replace(']','/')
+        abList = tagSorter(datalayerPath, _tag[1], tagObject)
+
+
 
     if(Path.exists(Path(_tagListPath))):
         File_object = open(Path(_tagListPath), "a", newline='')
