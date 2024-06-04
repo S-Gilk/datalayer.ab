@@ -20,9 +20,12 @@ def tagSorter(_datalayerPath:str, _controllerPath:str,_tag:object) -> typing.Lis
     res = re.findall(r'\[.*?\]', _datalayerPath)
     i = ''
     if res != []:
-       i = str(res[0]).replace('[','')
-       i = i.replace(']','')
-
+        i = str(res[0]).replace('[','')
+        i = i.replace(']','')
+        # By the time this is called, there should be only one array value in brackets
+        if len(res) > 1:
+            myLogger("Failed parsing assertion. Too many brackets in datalayer path.", logging.WARNING, source=__name__)
+           
     # Reformat datalayer path
     _datalayerPath = _datalayerPath.replace('[', '/')
     _datalayerPath = _datalayerPath.replace(']','/')
@@ -119,9 +122,21 @@ def writeSortedTagsToCSV(_tag:typing.Tuple[object,str], _tagListPath:str) -> typ
     # If tag name exists, tag object is top level 
     if 'tag_name' in tagObject:
         abList = tagSorter(tagObject['tag_name'], tagObject['tag_name'], tagObject)
-    else:
-        # Need to change paths here to reflect attributes
-        datalayerPath = _tag[1].replace('.','/')
+    else:      
+        # Replace all path array brackets [] with /
+        datalayerPath = _tag[1]
+        datalayerPath = datalayerPath.replace('[','/')
+        datalayerPath = datalayerPath.replace(']','')
+        # Replace all path attributes . with /
+        datalayerPath = datalayerPath.replace('.','/')
+        # If path ends in an array value, provide this to tag sorter
+        if _tag[1].endswith(']'):
+            start = _tag[1].rindex('[')
+            end = _tag[1].rindex(']')
+            arrayIndex = _tag[1][start:end+1]
+            datalayerPathStart = datalayerPath.rindex('/')
+            datalayerPath = datalayerPath[:datalayerPathStart] + arrayIndex
+
         abList = tagSorter(datalayerPath, _tag[1], tagObject)
 
     if(Path.exists(Path(_tagListPath))):
