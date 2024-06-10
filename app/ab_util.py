@@ -47,8 +47,8 @@ def tagSorter(_datalayerPath:str, _controllerPath:str,_tag:object) -> typing.Lis
         else:
             index = 0
         if _tag["array"] != 0:
-            # If no index provided, add all array tags
-            if index == 0:
+            # If no index provided, add all array tags. Check parsed result
+            if res == []:
                 for x in range(_tag["array"]):
                     tagSortDimensional(tagList, index, _datalayerPath, _controllerPath, _tag)
                     index = index + 1
