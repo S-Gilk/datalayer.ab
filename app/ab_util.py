@@ -164,7 +164,17 @@ def myLogger(message, level, source=None):
     elif (level == logging.WARNING):
         logger.warning(message)
     elif (level == logging.ERROR):
-        logger.error(message)   
+        logger.error(message)
+
+class DuplicateFilter(logging.Filter):
+
+    def filter(self, record):
+        # add other fields if you need more granular comparison, depends on your app
+        current_log = (record.module, record.levelno, record.msg)
+        if current_log != getattr(self, "last_log", None):
+            self.last_log = current_log
+            return True
+        return False
 
 def addData(_tag, _ctrlxDatalayerProvider, _controller):
     corePath = _tag[0]

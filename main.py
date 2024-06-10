@@ -35,7 +35,7 @@ import typing
 from pathlib import Path
 from pycomm3 import LogixDriver
 from helper.ctrlx_datalayer_helper import get_provider
-from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV
+from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV, DuplicateFilter
 
 
 class Controller():
@@ -65,9 +65,6 @@ class Controller():
             node.unregister_node()
         for node in self.PRIORITY_NODES:
             node.unregister_node()
-    
-    def getPLC(self):
-        return self.plc
     
     def connect(self):
         self.EIP_client.open()
@@ -110,7 +107,7 @@ def loadConfig():
         tagListPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/tagList.csv"
     
     # Configure the logger for easier analysis
-    logger = logging.getLogger()
+    logger = logging.getLogger('__main__')
     logger.handlers.clear()
     logFormatter = logging.Formatter(fmt='%(asctime)s:%(msecs)d, %(name)s, %(levelname)s, %(message)s', datefmt='%H:%M:%S')
     logHandler = RotatingFileHandler(logPath, mode='a', maxBytes=5*1024*1024, 
@@ -118,6 +115,7 @@ def loadConfig():
     logHandler.setFormatter(logFormatter) 
     logHandler.setLevel(logging.DEBUG)
     logger.addHandler(logHandler)
+    logger.addFilter(DuplicateFilter())
 
     myLogger("cltrX File Path: " + str(snap_path), logging.INFO, source=__name__) 
 
@@ -252,7 +250,7 @@ def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         controller = checkForExistingController(controllerConfig['ip'])
         # If a controller does not exist at the configured IP, create a new one
         if controller == None:
-            controller = Controller(controllerConfig['ip'], controllerConfig['name'])          
+            controller = Controller(controllerConfig['ip'], controllerConfig['name'])             
         # If tag list exists at controller level, provide specified tags
         if "tags" in controllerConfig:
             provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,controller, controllerConfig, True, priorityTags)
@@ -317,6 +315,26 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     except Exception as e:
          myLogger("Local execution failure: " + repr(e), logging.ERROR, source=__name__)
 
+def embeddedExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
+    """
+    Handles program execution inside of the snap context            
+        :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
+    """
+    try:
+        if configData['scan'] != True:
+            if "standard tags" in configData:
+                myLogger("Providing standard tags...", logging.INFO, source=__name__)
+                provideNodesByConfig(_ctrlxDatalayerProvider, 'standard tags')
+            if "priority tags" in configData:
+                myLogger("Providing priority tags...", logging.INFO, source=__name__)
+                provideNodesByConfig(_ctrlxDatalayerProvider, 'priority tags')
+    # ---------------------------- NETWORK SCANNING IS ENABLED ------------------------------------------------------------           
+        else:
+            myLogger("Providing autoscan tags...", logging.INFO, source=__name__)
+            provideNodesAutoscan(_ctrlxDatalayerProvider)
+    except Exception as e:
+         myLogger("Embedded execution failure: " + repr(e), logging.ERROR, source=__name__)  
+
 def runABProvider(_ctrlxDatalayerProvider):
     """
     Executes logic to provide configured or scanned tags to the configured ctrlX OS datalayer broker        
@@ -329,14 +347,7 @@ def runABProvider(_ctrlxDatalayerProvider):
     if snap_path is not None:
         # This means the app is deployed on a target
 # ----------------------------- NETWORK SCANNING IS DISABLED -----------------------------------------------------------            
-        if configData['scan'] != True:
-            if "standard tags" in configData:
-                provideNodesByConfig(_ctrlxDatalayerProvider, 'standard tags')
-            if "priority tags" in configData:
-                provideNodesByConfig(_ctrlxDatalayerProvider, 'priority tags')
-# ----------------------------- NETWORK SCANNING IS ENABLED ------------------------------------------------------------           
-        else:
-            provideNodesAutoscan(_ctrlxDatalayerProvider)                             
+        embeddedExecution(_ctrlxDatalayerProvider)               
 # ----------------------------- -----LOCAL EXECUTION -------------------------------------------------------------------
     else:
         localExecution(_ctrlxDatalayerProvider)
