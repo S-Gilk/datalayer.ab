@@ -94,18 +94,33 @@ def loadConfig():
     global logPath
     global tagListPath
     global configData
+    global filePath
 
     snap_path = os.getenv('SNAP')
     print(snap_path)
     if snap_path is None:
+        filePath = "./DEV/"
         configPath = "./DEV/config.json"
         logPath = "./DEV/info.log"
         tagListPath = "./DEV/tagList.csv"
     else:
+        filePath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/"
         configPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/config.json"
         logPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/info.log"
         tagListPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/tagList.csv"
-    
+
+    # Read config.json
+    try:
+        with open(configPath) as jsonConfig:
+            configData = json.load(jsonConfig)
+            # Delete previous logs if persistence is disabled
+            if not configData["LOG PERSIST"]:
+                for file in os.listdir(filePath):
+                    if ".log" in file:
+                        os.remove(filePath + file)
+    except Exception as e:
+        myLogger("Failed to read config.json. Exception: "  + repr(e), logging.ERROR, source=__name__)
+
     # Configure the logger for easier analysis
     logger = logging.getLogger('__main__')
     logger.handlers.clear()
@@ -117,29 +132,24 @@ def loadConfig():
     logger.addHandler(logHandler)
     logger.addFilter(DuplicateFilter())
 
+    # Set log level based on configured value
+    if(configData["LOG LEVEL"]):
+        logLevel = configData["LOG LEVEL"]
+        logger.setLevel(logging.getLevelName(logLevel))
+    
     myLogger("cltrX File Path: " + str(snap_path), logging.INFO, source=__name__) 
 
     # Get the time the files was modified
     fileTime = os.stat(configPath).st_mtime
     myLogger("Config modified at UNIX TIME " + str(fileTime), logging.INFO)
 
+    myLogger("Config data: " + str(configData), logging.INFO)
+
     # Delete any existing tag list
     try: 
         os.remove(Path(tagListPath))
     except Exception as e:
         myLogger("Failed to remove file at: " + tagListPath, logging.DEBUG)
-
-    # Read config.json
-    try:
-        with open(configPath) as jsonConfig:
-            configData = json.load(jsonConfig)
-            # Set log level based on configured value
-            if(configData["LOG LEVEL"]):
-                            logLevel = configData["LOG LEVEL"]
-                            logging.getLogger().setLevel(logging.getLevelName(logLevel))
-            myLogger("Config data: " + str(configData), logging.INFO)
-    except Exception as e:
-        myLogger("Failed to read config.json. Exception: "  + repr(e), logging.ERROR, source=__name__)
 
 def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider, _controller:Controller, _tags:list, _priorityTags:bool):
     """
@@ -156,6 +166,7 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
             sortedTags = writeSortedTagsToCSV(tag, tagListPath)  
             # Add tags to respective node lists
             for sortedTag in sortedTags:
+                myLogger("Providing tag: " + sortedTag[1] + "to device: " + _controller.ip, logging.INFO, source=__name__)
                 if not _priorityTags:
                     _controller.STANDARD_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
                 if _priorityTags:
@@ -424,8 +435,6 @@ def main():
                                 except Exception as e:
                                     myLogger("Bulk read failed: " + repr(e), logging.ERROR, source=__name__)                      
                     else:
-                        myLogger('Configuration changed. Restarting application...', logging.INFO, source=__name__)
-                        print("Configuration changed. Restating application...")
                         # CLEANUP
                         for i in range(len(CONTROLLER_LIST)):
                             del CONTROLLER_LIST[i]
@@ -437,6 +446,8 @@ def main():
                         # Restart
                         fileTime = os.path.getmtime(configPath)
                         loadConfig()
+                        myLogger('Configuration changed. Restarting application...', logging.INFO, source=__name__)
+                        print("Configuration changed. Restating application...")
                         runABProvider(ctrlxDatalayerProvider)
                         i = 0
                         for controller in CONTROLLER_LIST:
@@ -445,6 +456,7 @@ def main():
                             for tag in tempTagList:
                                 CONTROLLER_LIST[i].PRIORITY_TAG_LIST.append(tag)
                             i+=1
+                        myLogger('INFO Running endless loop...', logging.INFO, source=__name__)
             else: 
                 myLogger("No controllers configured or found. See application log.", logging.ERROR, source=__name__)            
 

@@ -1,5 +1,6 @@
 {
   "LOG LEVEL": "DEBUG",
+  "LOG PERSIST": false,
   "ctrlX provider": {
     "local": false,
     "ip":"192.168.1.101",
@@ -11,7 +12,7 @@
       {
         "name": "Machine1",
         "ip": "192.168.1.21",
-        "tags": ["udtTest.ar_UDT_Level_2.arUDT_Level_3[6].arUDT_Level_4[2]"]
+        "tags": ["udtTest.ar_UDT_Level_2.arUDT_Level_3[4]"]
       }
     ]
   }

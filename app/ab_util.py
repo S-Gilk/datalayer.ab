@@ -32,20 +32,29 @@ def tagSorter(_datalayerPath:str, _controllerPath:str,_tag:object) -> typing.Lis
     if _datalayerPath.endswith('/'):
         _datalayerPath = _datalayerPath.rstrip('/')
 
+    if i != '':            
+        index = int(i)
+    else:
+        index = 0
+
     if 'dimensions' in _tag:
         tag_type = _tag['tag_type']
-        index = 0
+        #index = 0
         if _tag["dimensions"][0] != 0:
-            for x in range(_tag["dimensions"][0]):
-                tagSortDimensional(tagList, index, _datalayerPath, _controllerPath, _tag) 
-                index = index + 1           
+            if res == []:
+                for x in range(_tag["dimensions"][0]):
+                    tagSortDimensional(tagList, index, _datalayerPath, _controllerPath, _tag) 
+                    index = index + 1        
+            else:
+                # If an array index was provided, only add specified index tags
+                tagSortDimensional(tagList,index,_datalayerPath,_controllerPath,_tag, True)
         else:
             tagSortNondimensional(tagList,_datalayerPath,_controllerPath,_tag)                               
     elif 'array' in _tag:      
-        if i != '':            
-            index = int(i)
-        else:
-            index = 0
+        # if i != '':            
+        #     index = int(i)
+        # else:
+        #     index = 0
         if _tag["array"] != 0:
             # If no index provided, add all array tags. Check parsed result
             if res == []:
@@ -121,7 +130,8 @@ def writeSortedTagsToCSV(_tag:typing.Tuple[object,str], _tagListPath:str) -> typ
 
     # If tag name exists, tag object is top level 
     if 'tag_name' in tagObject:
-        abList = tagSorter(tagObject['tag_name'], tagObject['tag_name'], tagObject)
+        #abList = tagSorter(tagObject['tag_name'], tagObject['tag_name'], tagObject)
+        abList = tagSorter(_tag[1], _tag[1], tagObject)
     else:      
         # Replace all path array brackets [] with /
         datalayerPath = _tag[1]
