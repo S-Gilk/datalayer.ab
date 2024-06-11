@@ -1,5 +1,5 @@
 {
-  "LOG LEVEL": "INFO",
+  "LOG LEVEL": "DEBUG",
   "LOG PERSIST": false,
   "ctrlX provider": {
     "local": false,
@@ -12,7 +12,7 @@
       {
         "name": "Machine1",
         "ip": "192.168.1.21",
-        "tags": ["*"]
+        "tags": ["arBasicTest[2]"]
       }
     ]
   },

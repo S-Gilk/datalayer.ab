@@ -3,9 +3,9 @@
   "menus": {
     "sidebar": [
       {
-        "id": "AB-Connector",
+        "id": "ab-connect",
         "title": "Allen-Bradley Connect",
-        "icon": "/package-assets/${SNAPCRAFT_PROJECT_NAME}/ABConnect",
+        "icon": "bosch-ic-components",
         "link": "/solutions/configurations/appdata/content?path=AllenBradley%2F",
         "permissions": [
           "solutions.r",
@@ -15,10 +15,10 @@
     ],
     "overview": [
       {
-        "id": "AB-Connect-Overview",
+        "id": "ab-connect-overview",
         "title": "Allen-Bradley Connect",
-        "description": "Configure Allen-Bradley Variable Driver",
-        "icon": "/package-assets/${SNAPCRAFT_PROJECT_NAME}/ABConnect",
+        "description": "Configure Allen-Bradley tag provider",
+        "icon": "bosch-ic-components",
         "link": "/solutions/configurations/appdata/content?path=AllenBradley%2F",
         "permissions": [
           "solutions.r",
@@ -31,7 +31,7 @@
     "appDirectories": [
       {
         "name": "AllenBradley",
-        "description": "AB Connect Configuration Data",
+        "description": "Allen-Bradley Connect configuration data",
         "icon": "bosch-ic-components",
         "copyOnLoad": false,
         "writeProtected" : false

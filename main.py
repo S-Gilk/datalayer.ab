@@ -219,7 +219,13 @@ def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Pr
         else:
             tagList = _controller.EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
         
-        locatedTags = formatTagList(_config['tags'], _controller)          
+        tagPaths = []
+        for tag in _config['tags']:
+            if not _controllerScope:
+                tagPaths.append("Program:" + _config['name'] + "." + tag)
+            else:
+                tagPaths.append(tag)
+        locatedTags = formatTagList(tagPaths, _controller)          
         # Sort and provide all located tags
         sortAndProvideTags(_ctrlxDatalayerProvider, _controller,locatedTags,_priorityTags)
             
@@ -380,6 +386,8 @@ def formatTagList(_tagList:typing.List[str], _controller:Controller) -> typing.T
     """
     locatedTags = []
     for tag in _tagList:
+        # if not _controllerScope:
+        #     tag = "Program:" + _config['name'] + "." + tag
         # Get specified tag info from the EIP client
         locatedTag = _controller.EIP_client.get_tag_info(tag)
         # Add tag info to located tags array

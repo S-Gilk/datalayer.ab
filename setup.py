@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='AB-Connector',
+    name='AB-Connect',
     version='3.1.7',
     description='This app provides Allen-Bradley PLC tags as datalayer nodes',
     author='alex4acre, S-Gilk',
