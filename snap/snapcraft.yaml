@@ -38,7 +38,7 @@ apps:
     daemon: simple
     restart-condition: always
     passthrough:   
-      restart-delay: 10s
+      restart-delay: 5s
 
 parts:
   provider:

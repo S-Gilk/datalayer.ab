@@ -1,5 +1,5 @@
 {
-  "LOG LEVEL": "DEBUG",
+  "LOG LEVEL": "INFO",
   "LOG PERSIST": false,
   "ctrlX provider": {
     "local": false,

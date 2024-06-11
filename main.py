@@ -117,7 +117,7 @@ def loadConfig():
             if not configData["LOG PERSIST"]:
                 for file in os.listdir(filePath):
                     if ".log" in file:
-                        os.remove(filePath + file)
+                        os.remove(Path(filePath+file))
     except Exception as e:
         myLogger("Failed to read config.json. Exception: "  + repr(e), logging.ERROR, source=__name__)
 
@@ -125,8 +125,9 @@ def loadConfig():
     logger = logging.getLogger('__main__')
     logger.handlers.clear()
     logFormatter = logging.Formatter(fmt='%(asctime)s:%(msecs)d, %(name)s, %(levelname)s, %(message)s', datefmt='%H:%M:%S')
-    logHandler = RotatingFileHandler(logPath, mode='a', maxBytes=2*1024*1024, 
-                                 backupCount=2, encoding=None, delay=0)
+    # Set max file size to 100kB. Rollover to new logs when exceeded
+    logHandler = RotatingFileHandler(logPath, mode='a', maxBytes=100*1024, 
+                                 backupCount=10, encoding=None, delay=0)
     logHandler.setFormatter(logFormatter) 
     logHandler.setLevel(logging.DEBUG)
     logger.addHandler(logHandler)

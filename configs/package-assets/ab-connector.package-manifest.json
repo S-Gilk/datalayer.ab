@@ -26,5 +26,16 @@
         ]
       }
     ]
+  },
+    "configuration": {
+    "appDirectories": [
+      {
+        "name": "AllenBradley",
+        "description": "AB Connect Configuration Data",
+        "icon": "bosch-ic-components",
+        "copyOnLoad": false,
+        "writeProtected" : false
+      }
+    ]
   }
 }

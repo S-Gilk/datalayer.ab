@@ -5,4 +5,5 @@
 .vscode
 *.snap
 *.log
+*.log.*
 *.csv
