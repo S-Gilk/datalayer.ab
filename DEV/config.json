@@ -6,13 +6,13 @@
     "ip":"192.168.1.101",
     "port":"443"
   },    
-  "scan": true,
+  "scan": false,
   "standard tags":{
     "controllers": [
       {
         "name": "Machine1",
         "ip": "192.168.1.21",
-        "tags": ["udtTest.ar_UDT_Level_2.arUDT_Level_3[8]", "udtTest.ar_UDT_Level_2.arUDT_Level_3[9]"]
+        "tags": ["*"]
       }
     ]
   },

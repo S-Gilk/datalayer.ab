@@ -6,7 +6,7 @@
     "ip":"192.168.1.101",
     "port":"443"
   },    
-  "scan": false,
+  "scan": true,
   "standard tags":{
     "controllers": [
       {

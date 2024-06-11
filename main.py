@@ -125,7 +125,7 @@ def loadConfig():
     logger = logging.getLogger('__main__')
     logger.handlers.clear()
     logFormatter = logging.Formatter(fmt='%(asctime)s:%(msecs)d, %(name)s, %(levelname)s, %(message)s', datefmt='%H:%M:%S')
-    logHandler = RotatingFileHandler(logPath, mode='a', maxBytes=5*1024*1024, 
+    logHandler = RotatingFileHandler(logPath, mode='a', maxBytes=2*1024*1024, 
                                  backupCount=2, encoding=None, delay=0)
     logHandler.setFormatter(logFormatter) 
     logHandler.setLevel(logging.DEBUG)
@@ -232,8 +232,12 @@ def provideAllDeviceTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         :param _controller: = Controller object containing PLC and EIP client
     """
     try:
-        tags = _controller.EIP_client.get_tag_list('*')
-        sortAndProvideTags(_ctrlxDatalayerProvider,_controller,tags, False) # When a full device tag set is provided, tags will not be priority
+        tags = _controller.EIP_client.get_tag_list('*')       
+        tagPaths = []
+        for tag in tags:
+            tagPaths.append(tag['tag_name'])
+        locatedTags = formatTagList(tagPaths, _controller)
+        sortAndProvideTags(_ctrlxDatalayerProvider,_controller,locatedTags, False) # When a full device tag set is provided, tags will not be priority
     except Exception as e:
         myLogger("Device tags of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
@@ -301,8 +305,13 @@ def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         for device in devices.Value: 
             message = 'Found Device: ' + device.IPAddress + '  Product Code: ' + device.ProductName + " " + str(device.ProductCode) + '  Vendor/Device ID:' + device.Vendor + " " + str(device.DeviceID) + '  Revision/Serial:' + device.Revision + " " + device.SerialNumber
             myLogger(message, logging.INFO, source=__name__)
+            # Check for existing controller at IP address
+            controller = checkForExistingController(device.IPAddress)
+            # If a controller does not exist at the configured IP, create a new one
+            if controller == None:
+                controller = Controller(device.IPAddress,device.ProductName) 
             # Provide all device tags for each discovered device
-            provideAllDeviceTags(_ctrlxDatalayerProvider, device)
+            provideAllDeviceTags(_ctrlxDatalayerProvider, controller)
 
 def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
     """
