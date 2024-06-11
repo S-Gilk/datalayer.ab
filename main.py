@@ -33,7 +33,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import typing
 from pathlib import Path
-from pycomm3 import LogixDriver
+from pycomm3 import LogixDriver, CIPDriver
 from helper.ctrlx_datalayer_helper import get_provider
 from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV, DuplicateFilter
 
@@ -186,12 +186,19 @@ def provideAllScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider
         :param _priorityTags: = boolean flag to indicate tags should be added to bulk read node list (TRUE = include in bulk read node list)
     """
     try:
+        # Need to cache tag list for get_tag_info()
         if _controllerScope:
             tags = _controller.EIP_client.get_tag_list()
         else:            
             tags = _controller.EIP_client.get_tag_list(_config['name'])
+
+        tagPaths = []
+        for tag in tags:
+            tagPaths.append(tag['tag_name'])
+        locatedTags = formatTagList(tagPaths, _controller)
+        
         # Tag list here is all top level tags of the program
-        sortAndProvideTags(_ctrlxDatalayerProvider, _controller, tags, _priorityTags)
+        sortAndProvideTags(_ctrlxDatalayerProvider, _controller, locatedTags, _priorityTags)
     except Exception as e:
         myLogger("Scope tags for: " + _config['name'] + " of device: " + _controller.ip + " could not be loaded. Exception: " + repr(e), logging.ERROR, source=__name__)
 
@@ -206,23 +213,12 @@ def provideSpecifiedScopeTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Pr
     """
     try:
         # Loop through each tag in the config.json program tags array
-        locatedTags = []
         if not _controllerScope:
             tagList = _controller.EIP_client.get_tag_list(_config['name']) # Need to cache tag list for get_tag_info()
         else:
             tagList = _controller.EIP_client.get_tag_list() # Need to cache tag list for get_tag_info()
-        for tag in _config['tags']:
-            # Format tag path based on controller or program tag type
-            if not _controllerScope: 
-                tag = "Program:" + _config['name'] + "." + tag
-            else:
-                tag = tag
-            # Check if tag is nested. Always need to retrieve info of top level tag
-           # base, sub_tag = tag.split(".")
-            # Get specified tag info from the EIP client
-            locatedTag = _controller.EIP_client.get_tag_info(tag)
-            # Add tag info to located tags array
-            locatedTags.append([locatedTag, tag])
+        
+        locatedTags = formatTagList(_config['tags'], _controller)          
         # Sort and provide all located tags
         sortAndProvideTags(_ctrlxDatalayerProvider, _controller,locatedTags,_priorityTags)
             
@@ -263,7 +259,7 @@ def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         if controller == None:
             controller = Controller(controllerConfig['ip'], controllerConfig['name'])             
         # If tag list exists at controller level, provide specified tags
-        if "tags" in controllerConfig:
+        if controllerConfig["tags"] != ["*"]:
             provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,controller, controllerConfig, True, priorityTags)
         # If no tag list exists at controller level, provide all controller scoped tags
         else:
@@ -272,7 +268,7 @@ def provideNodesByConfig(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
         if 'programs' in controllerConfig:
             for programConfig in controllerConfig['programs']:
                 # If a tag list exists in the program, provide specified tags
-                if "tags" in programConfig:
+                if programConfig["tags"] != ["*"]:
                     provideSpecifiedScopeTags(_ctrlxDatalayerProvider ,controller, programConfig, False, priorityTags)                         
                 # If no tag list exists in the program, provide all program scoped tags
                 else:
@@ -296,7 +292,8 @@ def provideNodesAutoscan(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provide
     """
     Provides all device nodes to the datalayer discovered via EIP network scan  
         :param _ctrlxDatalayerProvider: = ctrlX datalayer provider
-    """ 
+    """
+    myLogger("Providing autoscan tags...", logging.INFO, source=__name__)
     # Create a scoped scanner PLC object. This will be destroyed once tags have been added
     with PLC() as scanner:
         # Scan EIP network for devices
@@ -317,8 +314,10 @@ def localExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
         # -------------------------- OPTION 1: NO AUTOSCAN ------------------------------
         if configData['scan'] != True:
             if "standard tags" in configData:
+                myLogger("Providing standard tags...", logging.INFO, source=__name__)
                 provideNodesByConfig(_ctrlxDatalayerProvider, 'standard tags')
             if "priority tags" in configData:
+                myLogger("Providing priority tags...", logging.INFO, source=__name__)
                 provideNodesByConfig(_ctrlxDatalayerProvider, 'priority tags')
         # ---------------------------- OPTION 2: AUTOSCAN -------------------------------
         else:
@@ -341,7 +340,6 @@ def embeddedExecution(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider):
                 provideNodesByConfig(_ctrlxDatalayerProvider, 'priority tags')
     # ---------------------------- NETWORK SCANNING IS ENABLED ------------------------------------------------------------           
         else:
-            myLogger("Providing autoscan tags...", logging.INFO, source=__name__)
             provideNodesAutoscan(_ctrlxDatalayerProvider)
     except Exception as e:
          myLogger("Embedded execution failure: " + repr(e), logging.ERROR, source=__name__)  
@@ -362,6 +360,21 @@ def runABProvider(_ctrlxDatalayerProvider):
 # ----------------------------- -----LOCAL EXECUTION -------------------------------------------------------------------
     else:
         localExecution(_ctrlxDatalayerProvider)
+
+def formatTagList(_tagList:typing.List[str], _controller:Controller) -> typing.Tuple[str,object]:
+    """
+    Formats tag list prior to sorting and datalayer provision
+        :param _tagList: = List of tag paths      
+        :param _controller: = Controller object containing PLC and EIP client
+        :return locatedTags: = List of tuples containing tag path and tag object
+    """
+    locatedTags = []
+    for tag in _tagList:
+        # Get specified tag info from the EIP client
+        locatedTag = _controller.EIP_client.get_tag_info(tag)
+        # Add tag info to located tags array
+        locatedTags.append([locatedTag, tag])
+    return locatedTags
 
 def main():
     myLogger('#######################################################################', logging.DEBUG, source=__name__)
@@ -447,7 +460,7 @@ def main():
                         fileTime = os.path.getmtime(configPath)
                         loadConfig()
                         myLogger('Configuration changed. Restarting application...', logging.INFO, source=__name__)
-                        print("Configuration changed. Restating application...")
+                        print("Configuration changed. Restarting application...")
                         runABProvider(ctrlxDatalayerProvider)
                         i = 0
                         for controller in CONTROLLER_LIST:

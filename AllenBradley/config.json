@@ -1,9 +1,10 @@
 {
-  "LOG LEVEL": "INFO",
+  "LOG LEVEL": "DEBUG", 
+  "LOG PERSIST": false,
   "ctrlX provider": {
-    "local": true,
-    "ip":"",
-    "port":""
+    "local": false,
+    "ip":"192.168.1.101",
+    "port":"443"
   },    
   "scan": false,
   "standard tags":{
@@ -14,7 +15,8 @@
         "tags": ["iTest","bTest"],
         "programs": [
           {
-            "name": "SecondProgram"
+            "name": "SecondProgram",
+            "tags": ["*"]
           }
         ]
       }
@@ -29,7 +31,7 @@
         "programs": [
           {
             "name": "MainProgram",
-            "tags": []
+            "tags": ["arData100"]
           }
         ]
       }
