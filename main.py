@@ -167,7 +167,7 @@ def sortAndProvideTags(_ctrlxDatalayerProvider:ctrlxdatalayer.provider.Provider,
             sortedTags = writeSortedTagsToCSV(tag, tagListPath)  
             # Add tags to respective node lists
             for sortedTag in sortedTags:
-                myLogger("Providing tag: " + sortedTag[1] + "to device: " + _controller.ip, logging.INFO, source=__name__)
+                myLogger("Providing tag: " + sortedTag[1] + " to device: " + _controller.ip, logging.INFO, source=__name__)
                 if not _priorityTags:
                     _controller.STANDARD_NODES.append(addData(sortedTag, _ctrlxDatalayerProvider, _controller))
                 if _priorityTags:
