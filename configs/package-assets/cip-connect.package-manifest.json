@@ -6,7 +6,7 @@
         "id": "cip-connect",
         "title": "CIP Connect",
         "icon": "bosch-ic-components",
-        "link": "/solutions/configurations/appdata/content?path=AllenBradley%2F",
+        "link": "/solutions/configurations/appdata/content?path=CIPData%2F",
         "permissions": [
           "solutions.r",
           "solutions.rw"
@@ -19,7 +19,7 @@
         "title": "CIP Connect",
         "description": "Configure CIP tag provider",
         "icon": "bosch-ic-components",
-        "link": "/solutions/configurations/appdata/content?path=AllenBradley%2F",
+        "link": "/solutions/configurations/appdata/content?path=CIPData%2F",
         "permissions": [
           "solutions.r",
           "solutions.rw"

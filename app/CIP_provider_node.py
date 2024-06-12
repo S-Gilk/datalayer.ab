@@ -46,7 +46,7 @@ class CIPnode:
         self.providerNode = ProviderNode(self.cbs)
         self.provider = provider
         self.data = Variant()
-        self.address = "Allen-Bradley/" + path 
+        self.address = "CIP-Data/" + path 
         self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
@@ -216,7 +216,7 @@ class CIPnode2(CIPnode):
         self.providerNode = SubscriptionNode(self.cbs)
         self.provider = provider
         self.data = Variant()
-        self.address = "Allen-Bradley/" + path 
+        self.address = "CIP-Data/" + path 
         self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
@@ -249,7 +249,7 @@ class CIPnodeBulk:
         self.providerNode = ProviderNode(self.cbs)
         self.provider = provider
         self.data = Variant()
-        self.address = "Allen-Bradley/" + path 
+        self.address = "CIP-Data/" + path 
         self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
@@ -419,7 +419,7 @@ class CIPnode_Array:
         self.providerNode = ProviderNode(self.cbs)
         self.provider = provider
         self.data = Variant()
-        self.address = "Allen-Bradley/" + path 
+        self.address = "CIP-Data/" + path 
         self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
