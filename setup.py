@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(
-    name='AB-Connect',
+    name='CIP-Connect',
     version='3.1.8',
-    description='This app provides Allen-Bradley PLC tags as datalayer nodes',
+    description='This app provides CIP tags as datalayer nodes. Support for Allen-Bradley controllers.',
     author='alex4acre, S-Gilk',
     setup_requires = ['wheel'],
     install_requires = ['ctrlx-datalayer', 'pylogix', 'pycomm3'],    

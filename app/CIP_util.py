@@ -4,7 +4,7 @@ import pprint
 import csv
 import re
 from pathlib import Path
-from app.ab_provider_node import ABnode,ABnodeBulk
+from app.CIP_provider_node import CIPnode,CIPnodeBulk
 
 def tagSorter(_datalayerPath:str, _controllerPath:str,_tag:object) -> typing.List:
     """
@@ -127,18 +127,18 @@ def writeSortedTagsToCSV(_tag:typing.Tuple[object,str], _tagListPath:str) -> typ
         :return _EIP_client: = LogixDriver
     """
     tagObject = _tag[0]
+    datalayerPath = _tag[1]
+    # Replace all path attributes . with /
+    datalayerPath = datalayerPath.replace('.','/')
 
     # If tag name exists, tag object is top level 
     if 'tag_name' in tagObject:
         #abList = tagSorter(tagObject['tag_name'], tagObject['tag_name'], tagObject)
-        abList = tagSorter(_tag[1], _tag[1], tagObject)
+        abList = tagSorter(datalayerPath, _tag[1], tagObject)
     else:      
         # Replace all path array brackets [] with /
-        datalayerPath = _tag[1]
         datalayerPath = datalayerPath.replace('[','/')
         datalayerPath = datalayerPath.replace(']','')
-        # Replace all path attributes . with /
-        datalayerPath = datalayerPath.replace('.','/')
         # If path ends in an array value, provide this to tag sorter
         if _tag[1].endswith(']'):
             start = _tag[1].rindex('[')
@@ -146,14 +146,15 @@ def writeSortedTagsToCSV(_tag:typing.Tuple[object,str], _tagListPath:str) -> typ
             arrayIndex = _tag[1][start:end+1]
             datalayerPathStart = datalayerPath.rindex('/')
             datalayerPath = datalayerPath[:datalayerPathStart] + arrayIndex
-
         abList = tagSorter(datalayerPath, _tag[1], tagObject)
 
+    # Append or create new tag list at path
     if(Path.exists(Path(_tagListPath))):
         File_object = open(Path(_tagListPath), "a", newline='')
     else:
         File_object = open(Path(_tagListPath), "w+", newline='')
 
+    # Write all tags to list
     writer = csv.writer(File_object)
     for line in abList:
         writer.writerow(line)
@@ -187,41 +188,53 @@ class DuplicateFilter(logging.Filter):
         return False
 
 def addData(_tag, _ctrlxDatalayerProvider, _controller):
-    corePath = _tag[1]
     myLogger('adding tag: ' + _tag[1], logging.INFO, source=__name__)
-    if corePath.find("Program:") != -1:
-        corePath = corePath.replace("Program:", "")
-        pathSplit = corePath.split(".")
-        ABNode = ABnode(_ctrlxDatalayerProvider,
-                        _tag[1],
-                        _controller.plc,
-                        _tag[2],
-                        _controller.EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _controller.ip + "/" + pathSplit[0] + "/" + pathSplit[1])
-    else:
-        ABNode = ABnode(_ctrlxDatalayerProvider,
-                        _tag[1],
-                        _controller.plc,
-                        _tag[2],
-                        _controller.EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _controller.ip + "/" + "ControllerTags" + "/" + _tag[1])    
+
+    # Format path based on controller scope
+    datalayerPath = formatDatalayerPath(_tag, _controller)
+
+    # Create datalayer node
+    ABNode = CIPnode(_ctrlxDatalayerProvider,
+                _tag[1],
+                _controller.plc,
+                _tag[2],
+                datalayerPath)
+    
+    # Register datalayer node with provider
     ABNode.register_node()
     return ABNode
 
 def addDataBulk(_tag, _ctrlxDatalayerProvider, _controller, _tagData:list, _index):
-    corePath = _tag[1]
     myLogger('adding tag: ' + _tag[1], logging.INFO, source=__name__)
-    if corePath.find("Program:") != -1:
-        corePath = corePath.replace("Program:", "")
-        pathSplit = corePath.split(".")
-        ABNode = ABnodeBulk(_ctrlxDatalayerProvider,
+
+    # Format path based on controller scope
+    datalayerPath = formatDatalayerPath(_tag, _controller)
+
+    # Create datalayer node
+    ABNode = CIPnodeBulk(_ctrlxDatalayerProvider,
                         _tag[1],
                         _controller.plc,
                         _tag[2],
-                        _controller.EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _controller.ip + "/" + pathSplit[0] + "/" + pathSplit[1], _tagData, _index)
-    else:
-        ABNode = ABnodeBulk(_ctrlxDatalayerProvider,
-                        _tag[1],
-                        _controller.plc,
-                        _tag[2],
-                        _controller.EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _controller.ip + "/" + "ControllerTags" + "/" + _tag[1], _tagData, _index)    
+                        datalayerPath,
+                        _tagData,
+                        _index)
+    
+    # Register datalayer node with provider
     ABNode.register_node()
     return ABNode
+
+def formatDatalayerPath(_tag:object, _controller:object) -> str:
+    """
+    Formats datalayer path using controller info and tag scope
+        :param _tag: = Tuple containing top level tag object from EIP_client get_tag_info() and tag path in AB controller
+        :param _controller: = Controller object containing PLC and EIP_client
+        :return _datalayerPath: = Path string for datalayer provision
+    """
+    corePath = _tag[0]
+    _datalayerPath = _controller.EIP_client.info["product_name"].replace("/", "--").replace(" ","_") + "/" + _controller.ip + "/"
+    if corePath.find("Program:") != -1:
+        corePath = corePath.replace("Program:", "")
+        _datalayerPath += corePath
+    else:
+        _datalayerPath += "ControllerTags" + "/" + _tag[0]
+    return _datalayerPath

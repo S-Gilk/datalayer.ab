@@ -35,7 +35,7 @@ import typing
 from pathlib import Path
 from pycomm3 import LogixDriver, CIPDriver
 from helper.ctrlx_datalayer_helper import get_provider
-from app.ab_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV, DuplicateFilter
+from app.CIP_util import myLogger, addData, addDataBulk, writeSortedTagsToCSV, DuplicateFilter
 
 
 class Controller():
@@ -104,10 +104,10 @@ def loadConfig():
         logPath = "./DEV/info.log"
         tagListPath = "./DEV/tagList.csv"
     else:
-        filePath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/"
-        configPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/config.json"
-        logPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/info.log"
-        tagListPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/AllenBradley/tagList.csv"
+        filePath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/CIPData/"
+        configPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/CIPData/config.json"
+        logPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/CIPData/info.log"
+        tagListPath = "/var/snap/rexroth-solutions/common/solutions/activeConfiguration/CIPData/tagList.csv"
 
     # Read config.json
     try:
@@ -386,8 +386,6 @@ def formatTagList(_tagList:typing.List[str], _controller:Controller) -> typing.T
     """
     locatedTags = []
     for tag in _tagList:
-        # if not _controllerScope:
-        #     tag = "Program:" + _config['name'] + "." + tag
         # Get specified tag info from the EIP client
         locatedTag = _controller.EIP_client.get_tag_info(tag)
         # Add tag info to located tags array

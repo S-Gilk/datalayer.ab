@@ -12,7 +12,13 @@
       {
         "name": "Machine1",
         "ip": "192.168.1.21",
-        "tags": ["*"]
+        "tags": ["udtTest"],
+        "programs": [
+          {
+            "name": "EIPDrives",
+            "tags": []
+          }
+        ]
       }
     ]
   },
@@ -25,7 +31,7 @@
         "programs": [
           {
             "name": "EIPDrives",
-            "tags": ["udtTest"]
+            "tags": []
           }
         ]
       }

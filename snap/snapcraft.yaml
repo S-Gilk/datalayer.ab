@@ -1,9 +1,10 @@
-name: ab-connect
+name: cip-connect
 version: 3.1.8
-summary: Datalayer provider for Allen-Bradley tags
-title: Allen-Bradley Connect
+summary: Datalayer provider for CIP tags
+title: CIP Connect
 description: |
-  This app will find and add configured data from Allen-Bradley Controllers on the local network to the ctrlX datalayer.
+  This app will find and add configured data from CIP devices on the local network to the ctrlX datalayer.
+  Current support is for Allen-Bradley controllers.
 
   MIT License
 
@@ -52,9 +53,9 @@ parts:
       - ./whl/pycomm3-1.2.14-py3-none-any.whl 
   data:    
     plugin: dump 
-    source: AllenBradley 
+    source: CIPData 
     organize:
-      '*': ./AllenBradley/
+      '*': ./CIPData/
   configs:
     plugin: dump
     source: ./configs

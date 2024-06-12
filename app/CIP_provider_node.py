@@ -30,9 +30,9 @@ from pylogix import PLC
 from comm.datalayer import NodeClass
 from ctrlxdatalayer.metadata_utils import MetadataBuilder
 
-class ABnode:
+class CIPnode:
 
-    def __init__(self, provider : Provider, abTagName : str, controller : PLC, type : str, path : str):
+    def __init__(self, provider : Provider, CIPTagName : str, controller : PLC, type : str, path : str):
         
         self.cbs = ProviderNodeCallbacks(
             self.__on_create,
@@ -47,13 +47,13 @@ class ABnode:
         self.provider = provider
         self.data = Variant()
         self.address = "Allen-Bradley/" + path 
-        self.abTagName = abTagName
+        self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
         self.type = type      
 
         self.metadata = MetadataBuilder.create_metadata(
-            self.abTagName, self.abTagName, "", "", NodeClass.NodeClass.Variable, 
+            self.CIPTagName, self.CIPTagName, "", "", NodeClass.NodeClass.Variable, 
             read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=True,
             type_path = "")
         
@@ -80,7 +80,7 @@ class ABnode:
     def __on_read(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
         new_data = self.data
         try:
-            ret = self.controller.Read(self.abTagName)
+            ret = self.controller.Read(self.CIPTagName)
             self.readVariantValue(ret.Value)
             new_data = self.data
             cb(Result.OK, new_data)
@@ -130,40 +130,40 @@ class ABnode:
             else:
                 return self.data
         except Exception as e:
-            print("Failed to read tag: " + self.abTagName + " with exception: " + e)
+            print("Failed to read tag: " + self.CIPTagName + " with exception: " + e)
 
     def writeVariantValue(self, data : Variant):
         try:
             if self.type == "BOOL":
-                self.controller.Write(self.abTagName, data.get_bool8())
+                self.controller.Write(self.CIPTagName, data.get_bool8())
             elif self.type == "SINT":
-                self.controller.Write(self.abTagName, data.get_int8())
+                self.controller.Write(self.CIPTagName, data.get_int8())
             elif self.type == "INT":
-                self.controller.Write(self.abTagName, data.get_int16())
+                self.controller.Write(self.CIPTagName, data.get_int16())
             elif self.type == "DINT":
-                self.controller.Write(self.abTagName, data.get_int32())
+                self.controller.Write(self.CIPTagName, data.get_int32())
             elif self.type == "LINT":
-                self.controller.Write(self.abTagName, data.get_int64())
+                self.controller.Write(self.CIPTagName, data.get_int64())
             elif self.type == "USINT":
-                self.controller.Write(self.abTagName, data.get_uint8())
+                self.controller.Write(self.CIPTagName, data.get_uint8())
             elif self.type == "UINT":
-                self.controller.Write(self.abTagName, data.get_uint16())
+                self.controller.Write(self.CIPTagName, data.get_uint16())
             elif self.type == "UDINT":
-                self.controller.Write(self.abTagName, data.get_uint32())
+                self.controller.Write(self.CIPTagName, data.get_uint32())
             elif self.type == "LWORD":
-                self.controller.Write(self.abTagName, data.get_uint64())
+                self.controller.Write(self.CIPTagName, data.get_uint64())
             elif self.type == "REAL":
-                self.controller.Write(self.abTagName, data.get_float32())
+                self.controller.Write(self.CIPTagName, data.get_float32())
             elif self.type == "LREAL":
-                self.controller.Write(self.abTagName, data.get_float64())
+                self.controller.Write(self.CIPTagName, data.get_float64())
             elif self.type == "DWORD":
-                self.controller.Write(self.abTagName, data.get_uint32())
+                self.controller.Write(self.CIPTagName, data.get_uint32())
             elif self.type == "STRING":
-                self.controller.Write(self.abTagName, data.get_string())
+                self.controller.Write(self.CIPTagName, data.get_string())
             else:
-                print("Failed to write tag: " + self.abTagName)        
+                print("Failed to write tag: " + self.CIPTagName)        
         except Exception as e:
-            print("Failed to write tag: " + self.abTagName + " with exception: " + e)
+            print("Failed to write tag: " + self.CIPTagName + " with exception: " + e)
 
     def getVariantType(self, type : str):
         try:
@@ -196,11 +196,11 @@ class ABnode:
             else:
                 return "UNKNON"
         except Exception as e:
-            print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
+            print("Failed to get type for tag: " + self.CIPTagName + " with exception: " + e)
 
-class ABnode2(ABnode):
+class CIPnode2(CIPnode):
 
-    def __init__(self, provider : Provider, abTagName : str, controller : PLC, type : str, path : str):
+    def __init__(self, provider : Provider, CIPTagName : str, controller : PLC, type : str, path : str):
         
         self.cbs = ProviderNodeCallbacks2(
             self.__on_create,
@@ -217,13 +217,13 @@ class ABnode2(ABnode):
         self.provider = provider
         self.data = Variant()
         self.address = "Allen-Bradley/" + path 
-        self.abTagName = abTagName
+        self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
         self.type = type      
 
         self.metadata = MetadataBuilder.create_metadata(
-            self.abTagName, self.abTagName, "", "", NodeClass.NodeClass.Variable, 
+            self.CIPTagName, self.CIPTagName, "", "", NodeClass.NodeClass.Variable, 
             read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=True,
             type_path = "")
         
@@ -233,9 +233,9 @@ class ABnode2(ABnode):
     def __on_subscribe(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
         print("Unsubscribed to node: " + self.address)
 
-class ABnodeBulk:
+class CIPnodeBulk:
 
-    def __init__(self, provider : Provider, abTagName : str, controller : PLC, type : str, path : str, tagListData: list, index : int):
+    def __init__(self, provider : Provider, CIPTagName : str, controller : PLC, type : str, path : str, tagListData: list, index : int):
         
         self.cbs = ProviderNodeCallbacks(
             self.__on_create,
@@ -250,7 +250,7 @@ class ABnodeBulk:
         self.provider = provider
         self.data = Variant()
         self.address = "Allen-Bradley/" + path 
-        self.abTagName = abTagName
+        self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
         self.type = type 
@@ -258,14 +258,9 @@ class ABnodeBulk:
         self.tagList = tagListData  
 
         self.metadata = MetadataBuilder.create_metadata(
-            self.abTagName, self.abTagName, "", "", NodeClass.NodeClass.Variable, 
+            self.CIPTagName, self.CIPTagName, "", "", NodeClass.NodeClass.Variable, 
             read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=True,
             type_path = "")
-        
-        #copies the data from the list to the active data when initialized
-        #self.updateVariantValue()
-        #
-        #print("metadata:",self.metadata)
 
     def register_node(self):
       self.provider.register_node(self.address, self.providerNode)      
@@ -277,32 +272,24 @@ class ABnodeBulk:
         self.data = value
 
     def __on_create(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
-        #print("__on_create()", "address:", address, "userdata:", userdata)
         cb(Result.OK, data)
 
     def __on_remove(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_remove()", "address:", address, "userdata:", userdata)
         cb(Result.UNSUPPORTED, None)
 
     def __on_browse(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_browse()", "address:", address, "userdata:", userdata)
         new_data = Variant()
         new_data.set_array_string([])
         cb(Result.OK, new_data)
 
     def __on_read(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
         new_data = self.data
-        #ret = self.tagList[0]
         try:
-            #ret = self.controller.Read(self.abTagName)
             ret = self.tagList[self.index].Value
-            
-            #print(ret)
             self.readVariantValue(ret)
             new_data = self.data
             cb(Result.OK, new_data)
         except:
-            #myLogger("Failed to read tag " + self.abTagName, logging.WARNING, source=__name__)
             cb(Result.FAILED, new_data)    
         
 
@@ -312,11 +299,9 @@ class ABnodeBulk:
             self.writeVariantValue(data)
             cb(Result.OK, self.data)
         except:
-            #myLogger("Failed to write tag " + self.abTagName, logging.WARNING, source=__name__)
             cb(Result.FAILED, self.data)
 
     def __on_metadata(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, cb: NodeCallback):
-        #print("__on_metadata()", "address:", address,"metadata:",self.metadata, "userdata:", userdata)
         cb(Result.OK, self.metadata)
 
     def readVariantValue(self, data : object) -> Result:
@@ -350,44 +335,40 @@ class ABnodeBulk:
             else:
                 return self.data
         except Exception as e:
-            print("Failed to read tag: " + self.abTagName + " with exception: " + e)
-            #print(e)
-            #myLogger("Failed to read tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
+            print("Failed to read tag: " + self.CIPTagName + " with exception: " + e)
 
     def writeVariantValue(self, data : Variant):
         try:
             if self.type == "BOOL":
-                self.controller.Write(self.abTagName, data.get_bool8())
+                self.controller.Write(self.CIPTagName, data.get_bool8())
             elif self.type == "SINT":
-                self.controller.Write(self.abTagName, data.get_int8())
+                self.controller.Write(self.CIPTagName, data.get_int8())
             elif self.type == "INT":
-                self.controller.Write(self.abTagName, data.get_int16())
+                self.controller.Write(self.CIPTagName, data.get_int16())
             elif self.type == "DINT":
-                self.controller.Write(self.abTagName, data.get_int32())
+                self.controller.Write(self.CIPTagName, data.get_int32())
             elif self.type == "LINT":
-                self.controller.Write(self.abTagName, data.get_int64())
+                self.controller.Write(self.CIPTagName, data.get_int64())
             elif self.type == "USINT":
-                self.controller.Write(self.abTagName, data.get_uint8())
+                self.controller.Write(self.CIPTagName, data.get_uint8())
             elif self.type == "UINT":
-                self.controller.Write(self.abTagName, data.get_uint16())
+                self.controller.Write(self.CIPTagName, data.get_uint16())
             elif self.type == "UDINT":
-                self.controller.Write(self.abTagName, data.get_uint32())
+                self.controller.Write(self.CIPTagName, data.get_uint32())
             elif self.type == "LWORD":
-                self.controller.Write(self.abTagName, data.get_uint64())
+                self.controller.Write(self.CIPTagName, data.get_uint64())
             elif self.type == "REAL":
-                self.controller.Write(self.abTagName, data.get_float32())
+                self.controller.Write(self.CIPTagName, data.get_float32())
             elif self.type == "LREAL":
-                self.controller.Write(self.abTagName, data.get_float64())
+                self.controller.Write(self.CIPTagName, data.get_float64())
             elif self.type == "DWORD":
-                self.controller.Write(self.abTagName, data.get_uint32())
+                self.controller.Write(self.CIPTagName, data.get_uint32())
             elif self.type == "STRING":
-                self.controller.Write(self.abTagName, data.get_string())
+                self.controller.Write(self.CIPTagName, data.get_string())
             else:
-                print("Failed to write tag: " + self.abTagName)        
+                print("Failed to write tag: " + self.CIPTagName)        
         except Exception as e:
-            print("Failed to write tag: " + self.abTagName + " with exception: " + e)
-            #print(e)
-            #myLogger("Failed to write tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
+            print("Failed to write tag: " + self.CIPTagName + " with exception: " + e)
 
     def getVariantType(self, type : str):
         try:
@@ -420,13 +401,11 @@ class ABnodeBulk:
             else:
                 return "UNKNON"
         except Exception as e:
-            print("Failed to get type for tag: " + self.abTagName + " with exception: " + e)
-            #print(e)
-            #myLogger("Failed to get type for tag: " + self.abTagName + " with exception: " + e, logging.ERROR, source=__name__)
+            print("Failed to get type for tag: " + self.CIPTagName + " with exception: " + e)
 
-class ABnode_Array:
+class CIPnode_Array:
 
-    def __init__(self, provider : Provider, abTagName : str, controller : PLC, type : str, path : str):
+    def __init__(self, provider : Provider, CIPTagName : str, controller : PLC, type : str, path : str):
         
         self.cbs = ProviderNodeCallbacks(
             self.__on_create,
@@ -441,13 +420,13 @@ class ABnode_Array:
         self.provider = provider
         self.data = Variant()
         self.address = "Allen-Bradley/" + path 
-        self.abTagName = abTagName
+        self.CIPTagName = CIPTagName
         self.controller = controller
         self.dataType = self.getVariantType(type)
         self.type = type
 
         self.metadata = MetadataBuilder.create_metadata(
-            self.abTagName, self.abTagName, "", "", NodeClass.NodeClass.Variable, 
+            self.CIPTagName, self.CIPTagName, "", "", NodeClass.NodeClass.Variable, 
             read_allowed=True, write_allowed=True, create_allowed=False, delete_allowed=False, browse_allowed=False,
             type_path= self.dataType)
 
@@ -473,9 +452,9 @@ class ABnode_Array:
 
     def __on_read(self, userdata: ctrlxdatalayer.clib.userData_c_void_p, address: str, data: Variant, cb: NodeCallback):
         new_data = self.data
-        print(self.abTagName)
+        print(self.CIPTagName)
         with self.controller as con:
-            ret = con.Read(self.abTagName)
+            ret = con.Read(self.CIPTagName)
             self.readVariantValue(ret.Value)
         new_data = self.data
         cb(Result.OK, new_data)
@@ -523,31 +502,31 @@ class ABnode_Array:
         with self.controller as con:
             try:
                 if self.type == "BOOL":
-                   con.Write(self.abTagName, data.get_bool8())
+                   con.Write(self.CIPTagName, data.get_bool8())
                 elif self.type == "SINT":
-                    con.Write(self.abTagName, data.get_int8())
+                    con.Write(self.CIPTagName, data.get_int8())
                 elif self.type == "INT":
-                    con.Write(self.abTagName, data.get_int16())
+                    con.Write(self.CIPTagName, data.get_int16())
                 elif self.type == "DINT":
-                    con.Write(self.abTagName, data.get_int32())
+                    con.Write(self.CIPTagName, data.get_int32())
                 elif self.type == "LINT":
-                    con.Write(self.abTagName, data.get_int64())
+                    con.Write(self.CIPTagName, data.get_int64())
                 elif self.type == "USINT":
-                    con.Write(self.abTagName, data.get_uint8())
+                    con.Write(self.CIPTagName, data.get_uint8())
                 elif self.type == "UINT":
-                    con.Write(self.abTagName, data.get_uint16())
+                    con.Write(self.CIPTagName, data.get_uint16())
                 elif self.type == "UDINT":
-                    con.Write(self.abTagName, data.get_uint32())
+                    con.Write(self.CIPTagName, data.get_uint32())
                 elif self.type == "LWORD":
-                    con.Write(self.abTagName, data.get_uint64())
+                    con.Write(self.CIPTagName, data.get_uint64())
                 elif self.type == "REAL":
-                    con.Write(self.abTagName, data.get_float32())
+                    con.Write(self.CIPTagName, data.get_float32())
                 elif self.type == "LREAL":
-                    con.Write(self.abTagName, data.get_array_float64())
+                    con.Write(self.CIPTagName, data.get_array_float64())
                 elif self.type == "DWORD":
-                    con.Write(self.abTagName, data.get_uint32())
+                    con.Write(self.CIPTagName, data.get_uint32())
                 elif self.type == "STRING":
-                    con.Write(self.abTagName, data.get_string())
+                    con.Write(self.CIPTagName, data.get_string())
             except Exception as e:
                 print(e)
 
